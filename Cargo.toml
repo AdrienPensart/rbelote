@@ -1,0 +1,16 @@
+[package]
+name = "rcoinche"
+default-run = "rcoinche"
+version = "0.1.0"
+authors = ["Adrien Pensart <crunchengine@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+lazy_static = "1.4.0"
+structopt = "0.3"
+failure = "0.1.5"
+rand = "0.7"
+itertools = "0.8"
+strum = "0.15"
+strum_macros = "0.15"
+num_cpus = "1.0"
