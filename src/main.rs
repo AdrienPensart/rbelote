@@ -2,12 +2,13 @@ extern crate itertools;
 extern crate rand;
 #[macro_use]
 extern crate strum_macros;
-#[macro_use]
-extern crate lazy_static;
-
 use crate::player::{Player, Position};
+use clap::Parser;
 use fixed_map::Map;
 use inquire::Confirm;
+use std::error;
+use std::num::NonZeroUsize;
+use std::thread;
 
 pub mod bidding;
 pub mod card;
@@ -19,14 +20,6 @@ pub mod helpers;
 pub mod in_game;
 pub mod player;
 pub mod turn;
-
-use clap::Parser;
-use std::error;
-use std::thread;
-
-lazy_static! {
-    static ref DEFAULT_CONCURRENCY: String = num_cpus::get().to_string();
-}
 
 #[derive(Parser, Debug)]
 #[clap(author, about, version)]
@@ -52,15 +45,15 @@ struct Opts {
     test: bool,
 
     /// Concurrency in test mode, default is number of cpu on this machine
-    #[arg(short = 'c', long = "concurrency", default_value = DEFAULT_CONCURRENCY.as_str())]
-    concurrency: usize,
+    #[arg(short = 'c', long = "concurrency", default_value_t = thread::available_parallelism().unwrap())]
+    concurrency: NonZeroUsize,
 }
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let opts = Opts::parse();
     if opts.test {
         let mut children = vec![];
-        for _ in 0..opts.concurrency {
+        for _ in 0..opts.concurrency.get() {
             children.push(thread::spawn(move || {
                 helpers::test_game();
             }));
