@@ -12,6 +12,7 @@ use std::thread;
 
 pub mod bidding;
 pub mod card;
+pub mod contract;
 pub mod deck;
 pub mod distribution;
 pub mod errors;
@@ -41,7 +42,7 @@ struct Opts {
     human_west: bool,
 
     /// Test mode
-    #[arg(short = 't', long = "test")]
+    #[arg(short = 't', long = "test", default_value_t = false)]
     test: bool,
 
     /// Concurrency in test mode, default is number of cpu on this machine

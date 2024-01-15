@@ -1,4 +1,5 @@
-use crate::card::{Card, Color, Contract};
+use crate::card::{Card, Color};
+use crate::contract::Contract;
 use crate::deck::Deck;
 use crate::distribution::FirstDistribution;
 use crate::game::Game;
@@ -107,7 +108,6 @@ impl Bidding {
                             }
                             Ok(None) => {
                                 println!("Interrupted.");
-                                // self.deck.push(self.card_returned);
                                 return (None, None);
                             }
                             Err(_) => {

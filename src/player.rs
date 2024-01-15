@@ -5,40 +5,6 @@ use crate::turn::*;
 use fixed_map::Key;
 use std::fmt;
 
-// #[derive(Eq, PartialEq, Clone, Debug)]
-// pub enum Position {
-//     South,
-//     West,
-//     North,
-//     East,
-// }
-
-// impl Default for Position {
-//     fn default() -> Position {
-//         Self::South
-//     }
-// }
-
-// impl fmt::Display for Position {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         match &self {
-//             Self::South => write!(f, "South"),
-//             Self::West => write!(f, "West"),
-//             Self::North => write!(f, "North"),
-//             Self::East => write!(f, "East"),
-//         }
-//     }
-// }
-
-// #[derive(Default, Eq, PartialEq, Clone, Debug)]
-// pub struct North {}
-// #[derive(Default, Eq, PartialEq, Clone, Debug)]
-// pub struct South {}
-// #[derive(Default, Eq, PartialEq, Clone, Debug)]
-// pub struct East {}
-// #[derive(Default, Eq, PartialEq, Clone, Debug)]
-// pub struct West {}
-
 #[derive(Eq, PartialEq, Clone, Copy, Debug, Key, EnumIter)]
 pub enum Position {
     North,
@@ -46,14 +12,6 @@ pub enum Position {
     West,
     East,
 }
-
-// #[derive(Eq, PartialEq, Clone, Debug)]
-// pub enum Position {
-//     North(North),
-//     South(South),
-//     West(West),
-//     East(East),
-// }
 
 impl fmt::Display for Position {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
