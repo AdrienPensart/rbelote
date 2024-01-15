@@ -25,12 +25,16 @@ pub fn test_game() {
     players.insert(Position::East, Player::new(true));
     players.insert(Position::South, Player::new(true));
     players.insert(Position::West, Player::new(true));
+    let mut game = Game::new(players).unwrap();
     loop {
-        let mut game = Game::new(players.clone()).unwrap();
-        let card = game.distribute();
-        if game.bidding(card) {
-            game.play().unwrap();
+        let distribution = game.distribute();
+        let bidding = distribution.create_bidding().unwrap();
+        game = match bidding.start_game_or_next() {
+            (Some(old_game), None) => old_game,
+            (None, Some(in_game)) => in_game.play().unwrap(),
+            _ => {
+                panic!("A game can only be played or redistributed")
+            }
         }
-        // assert!(game.count_points().is_ok());
     }
 }

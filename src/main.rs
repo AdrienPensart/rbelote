@@ -9,11 +9,14 @@ use crate::player::{Player, Position};
 use fixed_map::Map;
 use inquire::Confirm;
 
+pub mod bidding;
 pub mod card;
 pub mod deck;
+pub mod distribution;
 pub mod errors;
 pub mod game;
 pub mod helpers;
+pub mod in_game;
 pub mod player;
 pub mod turn;
 
@@ -48,10 +51,6 @@ struct Opts {
     #[arg(short = 't', long = "test")]
     test: bool,
 
-    /// Infinite mode
-    #[arg(long = "infinite")]
-    infinite: bool,
-
     /// Concurrency in test mode, default is number of cpu on this machine
     #[arg(short = 'c', long = "concurrency", default_value = DEFAULT_CONCURRENCY.as_str())]
     concurrency: usize,
@@ -77,25 +76,23 @@ fn main() -> Result<(), Box<dyn error::Error>> {
         players.insert(Position::West, Player::new(!opts.human_west));
 
         let mut game = game::Game::new(players)?;
-        'game: loop {
-            let trump = game.distribute();
-            if !game.bidding(trump) {
-                println!("Everyone passed !");
-            } else {
-                game.play()?;
-            }
+        'current_game: loop {
+            let distribution = game.distribute();
+            let bidding = distribution.create_bidding()?;
+            game = match bidding.start_game_or_next() {
+                (Some(old_game), None) => old_game,
+                (None, Some(in_game)) => in_game.play()?,
+                _ => {
+                    println!("A game can only be played or redistributed");
+                    break 'current_game;
+                }
+            };
 
-            for (team, points) in game.team_points() {
+            for (team, points) in game.team_total_points() {
                 println!(
                     "Game number {}, team {} = {} points",
-                    game.number(),
-                    team,
-                    points
+                    game.number, team, points
                 );
-            }
-
-            if opts.infinite {
-                continue;
             }
 
             loop {
@@ -105,14 +102,14 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
                 match answer {
                     Ok(Some(true)) => {
-                        continue 'game;
+                        continue 'current_game;
                     }
                     Ok(Some(false)) => {
-                        break 'game;
+                        break 'current_game;
                     }
                     Ok(None) => {
                         println!("Interrupted.");
-                        break 'game;
+                        break 'current_game;
                     }
                     Err(_) => {
                         println!("Error with questionnaire, try again.");
@@ -121,7 +118,6 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             }
         }
         println!("GAME ENDED");
-        println!("{}", game);
     }
     Ok(())
 }

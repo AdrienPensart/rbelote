@@ -97,13 +97,13 @@ impl Card {
     pub fn new(color: Color, value: Value) -> Self {
         Self { color, value }
     }
-    pub fn points(&self, trump_color: Color) -> u16 {
+    pub fn points(&self, trump_color: Color) -> u64 {
         match self.value {
             Value::Jack => {
                 if self.color == trump_color {
                     20
                 } else {
-                    3
+                    2
                 }
             }
             Value::_9 => {
@@ -115,8 +115,8 @@ impl Card {
             }
             Value::As => 11,
             Value::_10 => 10,
-            Value::King => 5,
-            Value::Queen => 4,
+            Value::King => 4,
+            Value::Queen => 3,
             Value::_8 => 0,
             Value::_7 => 0,
         }

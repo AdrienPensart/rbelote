@@ -157,7 +157,6 @@ impl Player {
         trump_color: Color,
     ) -> Result<Vec<usize>, BeloteErrorKind> {
         println!("{position} : trump color is {trump_color}");
-        assert!(!self.hand.is_empty());
         let choices = match (turn.called(), turn.master_card(), turn.master_team()) {
             (None, None, None) => (0..self.hand.len()).collect::<Vec<usize>>(),
             (Some(called_color), Some(master_card), Some(master_team)) => {
@@ -187,12 +186,6 @@ impl Player {
                 println!("trumps_more: {:?}", trumps_more);
                 println!("other_colors: {:?}", other_colors);
                 println!("same_colors: {:?}", same_colors);
-
-                assert!(trumps_less.len() + trumps_more.len() == trumps.len());
-                assert!(
-                    trumps_less.len() + trumps_more.len() + same_colors.len() + other_colors.len()
-                        == self.hand.len()
-                );
 
                 if called_color == trump_color {
                     if !trumps_more.is_empty() {
@@ -232,7 +225,6 @@ impl Player {
                 )))
             }
         };
-        assert!(!choices.is_empty());
         Ok(choices)
     }
 }

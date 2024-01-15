@@ -20,9 +20,9 @@ impl fmt::Display for Deck {
 }
 
 impl Deck {
-    // fn points(&self, trump_color: Color) -> u16 {
-    //     self.0.iter().map(|c| c.points(trump_color)).sum()
-    // }
+    pub fn points(&self, trump_color: Color) -> u64 {
+        self.0.iter().map(|c| c.points(trump_color)).sum()
+    }
     pub fn build_deck() -> Deck {
         let mut d: Vec<Card> = Color::iter()
             .cartesian_product(Value::iter())
@@ -86,7 +86,6 @@ impl Deck {
 #[test]
 fn deck_tests() {
     let stack = Deck::build_deck();
-
     assert!(stack.len() == MAX_CARDS);
 
     let empty = Deck::default();
