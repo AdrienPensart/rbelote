@@ -1,3 +1,5 @@
+use crate::player::{Player, Position};
+use fixed_map::Map;
 use std::io;
 
 #[allow(clippy::redundant_closure)]
@@ -18,17 +20,17 @@ pub fn wait_input() {
 
 pub fn test_game() {
     use crate::game::Game;
+    let mut players = Map::new();
+    players.insert(Position::North, Player::new(true));
+    players.insert(Position::East, Player::new(true));
+    players.insert(Position::South, Player::new(true));
+    players.insert(Position::West, Player::new(true));
     loop {
-        let mut game = Game::new(true, true);
-        game.distribute();
-        assert!(game.bidding().is_ok());
-        if game.passed() {
-            continue
+        let mut game = Game::new(players.clone()).unwrap();
+        let card = game.distribute();
+        if game.bidding(card) {
+            game.play().unwrap();
         }
-        while !game.finished() {
-            assert!(game.play().is_ok());
-        }
-        assert!(game.count_points().is_ok());
-        break
+        // assert!(game.count_points().is_ok());
     }
 }

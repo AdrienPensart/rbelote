@@ -1,33 +1,33 @@
-use std::fmt;
-use rand::thread_rng;
-use rand::seq::SliceRandom;
-use itertools::Itertools;
-use strum::IntoEnumIterator;
 use crate::card::*;
-use crate::traits::*;
+use itertools::Itertools;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+use std::fmt;
+use strum::IntoEnumIterator;
 
 #[derive(Default, Clone, Debug)]
-pub struct Deck (pub Vec<Card>);
-pub const MAX_CARDS : usize = 32;
+pub struct Deck(pub Vec<Card>);
+pub const MAX_CARDS: usize = 32;
 
-impl<'a> fmt::Display for Deck {
+impl fmt::Display for Deck {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f)?;
         for card in self.0.iter() {
-            write!(f, "\t{}", card)?
+            writeln!(f, "\t{}", card)?
         }
         Ok(())
     }
 }
 
-impl Points for Deck {
-    fn points(&self) -> u16 {
-        self.0.iter().map(Points::points).sum()
-    }
-}
-
 impl Deck {
+    // fn points(&self, trump_color: Color) -> u16 {
+    //     self.0.iter().map(|c| c.points(trump_color)).sum()
+    // }
     pub fn build_deck() -> Deck {
-        let mut d : Vec<Card> = Color::iter().cartesian_product(Value::iter()).map(|(c, v)| Card{atout: false, color: c, value: v}).collect();
+        let mut d: Vec<Card> = Color::iter()
+            .cartesian_product(Value::iter())
+            .map(|(c, v)| Card::new(c, v))
+            .collect();
         let mut rng = thread_rng();
         d.shuffle(&mut rng);
         assert!(d.len() == MAX_CARDS);
@@ -55,11 +55,31 @@ impl Deck {
     pub fn append(&mut self, deck: Deck) {
         self.0.append(&mut deck.0.clone());
     }
-    pub fn push(&mut self, card: Card){
+    pub fn push(&mut self, card: Card) {
         self.0.push(card);
+    }
+    pub fn remove(&mut self, index: usize) -> Card {
+        self.0.remove(index)
     }
     pub fn sort(&mut self) {
         self.0.sort();
+    }
+    pub fn has_color(&self, color: Color) -> bool {
+        self.0.iter().any(|c| c.color() == color)
+    }
+    pub fn belote_rebelote(&self, trump_color: Color) -> bool {
+        let mut queen = false;
+        let mut king = false;
+        for card in self.0.iter() {
+            if card.color() == trump_color {
+                if card.value() == Value::Queen {
+                    queen = true;
+                } else if card.value() == Value::King {
+                    king = true;
+                }
+            }
+        }
+        queen && king
     }
 }
 
@@ -72,4 +92,3 @@ fn deck_tests() {
     let empty = Deck::default();
     assert!(empty.is_empty());
 }
-

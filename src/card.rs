@@ -1,21 +1,55 @@
+use crate::errors::BeloteErrorKind;
 use std::fmt;
-use crate::traits::*;
+use std::str::FromStr;
+use strum_macros::Display;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Display)]
 pub enum Color {
+    #[strum(serialize = "♥")]
     Heart,
+    #[strum(serialize = "♠")]
     Spade,
+    #[strum(serialize = "♦")]
     Diamond,
+    #[strum(serialize = "♣")]
     Club,
 }
 
-impl fmt::Display for Color {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Display)]
+pub enum Contract {
+    #[strum(serialize = "♥")]
+    Heart,
+    #[strum(serialize = "♠")]
+    Spade,
+    #[strum(serialize = "♦")]
+    Diamond,
+    #[strum(serialize = "♣")]
+    Club,
+    Pass,
+}
+
+impl Contract {
+    pub fn color(&self) -> Option<Color> {
         match self {
-            Self::Spade   => write!(f, "♠"),
-            Self::Diamond => write!(f, "♦"),
-            Self::Club  => write!(f, "♣"),
-            Self::Heart   => write!(f, "♥"),
+            Self::Club => Some(Color::Club),
+            Self::Diamond => Some(Color::Diamond),
+            Self::Heart => Some(Color::Heart),
+            Self::Spade => Some(Color::Spade),
+            Self::Pass => None,
+        }
+    }
+}
+
+impl FromStr for Color {
+    type Err = BeloteErrorKind;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "♠" => Ok(Self::Spade),
+            "♦" => Ok(Self::Diamond),
+            "♣" => Ok(Self::Club),
+            "♥" => Ok(Self::Heart),
+            _ => Err(BeloteErrorKind::InvalidColor),
         }
     }
 }
@@ -49,46 +83,77 @@ impl fmt::Display for Value {
 
 #[derive(Copy, Ord, Clone, Debug, Eq, PartialEq, PartialOrd)]
 pub struct Card {
-    pub atout: bool,
-    pub color: Color,
-    pub value: Value,
+    color: Color,
+    value: Value,
 }
 
-impl Points for Card {
-    fn points(&self) -> u16 {
+impl fmt::Display for Card {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.color, self.value)
+    }
+}
+
+impl Card {
+    pub fn new(color: Color, value: Value) -> Self {
+        Self { color, value }
+    }
+    pub fn points(&self, trump_color: Color) -> u16 {
         match self.value {
-            Value::Jack => if self.atout { 20 } else { 3 },
-            Value::_9   => if self.atout { 14 } else { 0 },
-            Value::As   => 11,
-            Value::_10  => 10,
+            Value::Jack => {
+                if self.color == trump_color {
+                    20
+                } else {
+                    3
+                }
+            }
+            Value::_9 => {
+                if self.color == trump_color {
+                    14
+                } else {
+                    0
+                }
+            }
+            Value::As => 11,
+            Value::_10 => 10,
             Value::King => 5,
             Value::Queen => 4,
             Value::_8 => 0,
             Value::_7 => 0,
         }
     }
-}
-
-impl fmt::Display for Card {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}:{}:{}", self.atout, self.color, self.value)
+    pub fn color(&self) -> Color {
+        self.color
     }
-}
-
-impl Card {
-    pub fn master(self, arg: Card) -> bool {
-        match (&self, &arg) {
-            (Card{atout: true, ..}, Card{atout: false, ..}) => true,
-            (Card{atout: false, ..}, Card{atout: true, ..}) => false,
-            (card1, card2) => card1.color != card2.color || card1.power() > card2.power()
+    pub fn value(&self) -> Value {
+        self.value
+    }
+    pub fn master(self, arg: Card, trump_color: Color) -> bool {
+        match (self, arg) {
+            (card1, card2) if card1.color == trump_color && card2.color != trump_color => true,
+            (card1, card2) if card1.color != trump_color && card2.color == trump_color => false,
+            (card1, card2) => {
+                card1.color != card2.color || card1.power(trump_color) > card2.power(trump_color)
+            }
         }
     }
-    pub fn power(self) -> u8 {
+    pub fn power(self, trump_color: Color) -> u8 {
         match self.value {
-            Value::Jack => if self.atout { 20 } else { 3 },
-            Value::_9   => if self.atout { 14 } else { 2 },
-            Value::As   => 11,
-            Value::_10  => 10,
+            Value::Jack => {
+                if self.color == trump_color {
+                    20
+                } else {
+                    3
+                }
+            }
+            Value::_9 => {
+                if self.color == trump_color {
+                    14
+                } else {
+                    2
+                }
+            }
+            Value::As => 11,
+            Value::_10 => 10,
             Value::King => 5,
             Value::Queen => 4,
             Value::_8 => 1,
@@ -99,15 +164,33 @@ impl Card {
 
 #[test]
 fn card_tests() {
-    let spade_7 = Card{atout: false, color: Color::Spade, value: Value::_7};
-    let spade_10 = Card{atout: false, color: Color::Spade, value: Value::_10};
-    let diamond_7 = Card{atout: true, color: Color::Diamond, value: Value::_7};
-    let club_8 = Card{atout: true, color: Color::Club, value: Value::_8};
-    assert!(!spade_10.master(diamond_7));
-    assert!(spade_10.master(spade_7));
-    assert!(club_8.master(diamond_7));
+    let spade_7 = Card {
+        color: Color::Spade,
+        value: Value::_7,
+    };
+    let spade_10 = Card {
+        color: Color::Spade,
+        value: Value::_10,
+    };
+    let diamond_7 = Card {
+        color: Color::Diamond,
+        value: Value::_7,
+    };
+    let club_8 = Card {
+        color: Color::Club,
+        value: Value::_8,
+    };
+    assert!(!spade_10.master(diamond_7, Color::Diamond));
+    assert!(spade_10.master(spade_7, Color::Club));
+    assert!(club_8.master(diamond_7, Color::Heart));
 
-    let heart_10 = Card{atout: true, color: Color::Heart, value: Value::_10};
-    let heart_j = Card{atout: true, color: Color::Heart, value: Value::Jack};
-    assert!(heart_j.master(heart_10))
+    let heart_10 = Card {
+        color: Color::Heart,
+        value: Value::_10,
+    };
+    let heart_j = Card {
+        color: Color::Heart,
+        value: Value::Jack,
+    };
+    assert!(heart_j.master(heart_10, Color::Heart))
 }

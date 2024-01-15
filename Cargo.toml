@@ -7,10 +7,12 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
-structopt = "0.3"
-failure = "0.1.5"
-rand = "0.7"
-itertools = "0.8"
-strum = "0.15"
-strum_macros = "0.15"
+rand = "0.8"
+itertools = "0.12"
+strum = "0.25"
+strum_macros = "0.25"
 num_cpus = "1.0"
+thiserror = "1.0"
+inquire = "0.6"
+clap = { version = "4.0", features = ["derive"] }
+fixed-map = "0.9.3"

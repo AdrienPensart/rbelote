@@ -1,23 +1,11 @@
-use failure::Context;
-#[derive(Debug)]
-pub struct BeloteError {
-    inner: Context<BeloteErrorKind>,
-}
+use thiserror::Error;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum BeloteErrorKind {
-    #[fail(display = "Invalid mode")]
-    InvalidMode,
-    #[fail(display = "No contract")]
-    NoContract,
-    #[fail(display = "Invalid contract")]
-    InvalidContract,
-    #[fail(display = "Invalid case")]
-    InvalidCase,
-    #[fail(display = "Invalid color")]
+    #[error("Invalid case : {0}")]
+    InvalidCase(String),
+    #[error("Invalid color")]
     InvalidColor,
-    #[fail(display = "No taker or auctions not finished")]
+    #[error("No taker or auctions not finished")]
     NoTaker,
-    #[fail(display = "A player shoud belongs to a team")]
-    NoTeam,
 }
