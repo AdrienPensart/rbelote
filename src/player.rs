@@ -1,122 +1,35 @@
-use crate::card::{Card, Color};
+use crate::card::Color;
 use crate::deck::Deck;
 use crate::errors::BeloteErrorKind;
-use crate::turn::*;
-use fixed_map::Key;
+use crate::position::Position;
+use crate::turn::Turn;
 use std::fmt;
 
-#[derive(Eq, PartialEq, Clone, Copy, Debug, Key, EnumIter)]
-pub enum Position {
-    North,
-    South,
-    West,
-    East,
-}
-
-impl fmt::Display for Position {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::North => write!(f, "North"),
-            Self::South => write!(f, "South"),
-            Self::West => write!(f, "West"),
-            Self::East => write!(f, "East"),
-        }
-    }
-}
-
-impl Position {
-    pub fn team(&self) -> Team {
-        match self {
-            Self::East | Self::West => Team::WestEast,
-            Self::North | Self::South => Team::NorthSouth,
-        }
-    }
-    pub fn next(&self) -> Position {
-        match self {
-            Self::East => Self::South,
-            Self::West => Self::North,
-            Self::North => Self::East,
-            Self::South => Self::West,
-        }
-    }
-}
-
-#[derive(Eq, PartialEq, Clone, Copy, Debug, Key)]
-pub enum Team {
-    NorthSouth,
-    WestEast,
-}
-
-impl Team {
-    pub fn other(&self) -> Team {
-        match self {
-            Self::NorthSouth => Self::WestEast,
-            Self::WestEast => Self::NorthSouth,
-        }
-    }
-}
-
-impl fmt::Display for Team {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self {
-            Self::NorthSouth => write!(f, "North / South"),
-            Self::WestEast => write!(f, "West / East"),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Player {
-    pub hand: Deck,
     pub random: bool,
 }
 
 impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "hand: {}, random: {}", self.hand, self.random)
+        write!(f, "random: {}", self.random)
     }
 }
 
 impl Player {
     pub fn new(random: bool) -> Player {
-        Player {
-            random,
-            hand: Deck::default(),
-        }
-    }
-    pub fn len(&self) -> usize {
-        self.hand.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.hand.is_empty()
-    }
-    pub fn last_turn(&self) -> bool {
-        self.hand.is_empty()
-    }
-    pub fn before_last_turn(&self) -> bool {
-        self.hand.len() == 1
-    }
-    pub fn is_first_turn(&self) -> bool {
-        self.hand.len() == 8
-    }
-    pub fn give_one(&mut self, index: usize) -> Card {
-        self.hand.remove(index)
-    }
-    pub fn belote_rebelote(&self, trump_color: Color) -> bool {
-        self.hand.belote_rebelote(trump_color)
-    }
-    pub fn has_color(&self, trump_color: Color) -> bool {
-        self.hand.has_color(trump_color)
+        Player { random }
     }
     pub fn choices(
         &self,
+        hand: &Deck,
         position: &Position,
         turn: &Turn,
         trump_color: Color,
     ) -> Result<Vec<usize>, BeloteErrorKind> {
         println!("{position} : trump color is {trump_color}");
         let choices = match (turn.called(), turn.master_card(), turn.master_team()) {
-            (None, None, None) => (0..self.hand.len()).collect::<Vec<usize>>(),
+            (None, None, None) => (0..hand.len()).collect::<Vec<usize>>(),
             (Some(called_color), Some(master_card), Some(master_team)) => {
                 let mut trumps = Vec::new();
                 let mut trumps_less = Vec::new();
@@ -124,7 +37,7 @@ impl Player {
                 let mut other_colors = Vec::new();
                 let mut same_colors = Vec::new();
 
-                for (i, card) in self.hand.0.iter().enumerate() {
+                for (i, card) in hand.0.iter().enumerate() {
                     if card.color() == trump_color {
                         trumps.push(i);
                         if card.points(trump_color) > master_card.points(trump_color) {

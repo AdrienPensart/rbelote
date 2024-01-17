@@ -1,6 +1,7 @@
 use crate::card::{Card, Color};
 use crate::deck::Deck;
-use crate::player::{Position, Team};
+use crate::position::Position;
+use crate::team::Team;
 use fixed_map::Map;
 use std::fmt;
 

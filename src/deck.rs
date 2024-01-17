@@ -49,6 +49,9 @@ impl Deck {
             None
         }
     }
+    pub fn give_one_at(&mut self, index: usize) -> Card {
+        self.0.remove(index)
+    }
     pub fn give_all(&mut self) -> Deck {
         Deck(self.0.drain(..).collect())
     }

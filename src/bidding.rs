@@ -1,49 +1,48 @@
 use crate::card::{Card, Color};
 use crate::contract::Contract;
-use crate::deck::Deck;
-use crate::distribution::FirstDistribution;
-use crate::game::Game;
-use crate::in_game::InGame;
-use crate::player::{Player, Position, Team};
-use fixed_map::Map;
+use crate::distribution::Distribution;
+use crate::game::{Game, Initial, Playing};
+use crate::order::Order;
+use crate::position::Position;
+use crate::traits::PlayingOrder;
 use inquire::{Confirm, Select};
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use std::str::FromStr;
 use strum::IntoEnumIterator;
 
-#[derive(Debug)]
-pub struct Bidding {
-    pub number: u64,
-    pub dealer: Position,
-    pub card_returned: Card,
-    pub deck: Deck,
-    pub players: Map<Position, Player>,
-    pub team_total_points: Map<Team, u64>,
+pub enum BiddingResult {
+    NextGame(Game<Initial>),
+    PlayGame(Game<Playing>),
+    Interrupted,
 }
 
-impl Bidding {
-    pub fn new(first_distribution: FirstDistribution, card_returned: Card) -> Self {
-        Self {
-            card_returned,
-            team_total_points: first_distribution.team_total_points,
-            number: first_distribution.number,
-            dealer: first_distribution.dealer,
-            deck: first_distribution.deck,
-            players: first_distribution.players,
-        }
-    }
+pub struct Bidding {
+    pub card_returned: Card,
+    pub distribution: Distribution,
+}
 
-    pub fn start_game_or_next(mut self) -> (Option<Game>, Option<InGame>) {
+impl PlayingOrder for Game<Bidding> {
+    fn order(&self) -> Order {
+        self.state.distribution.order()
+    }
+}
+
+impl Game<Bidding> {
+    pub fn playing_game_or_redistribute(mut self) -> BiddingResult {
+        let card_returned = self.state.card_returned;
         let mut rng = thread_rng();
-        let mut trump_color = self.card_returned.color();
+        let mut trump_color = card_returned.color();
         let mut taker: Option<Position> = None;
         println!("First bidding turn");
-        for (position, player) in self.players.iter_mut() {
-            let take = if player.random {
+        for position in self.order() {
+            let take = if self.players[position].random {
                 rng.gen_bool(0.5)
             } else {
                 'questionnaire: loop {
-                    println!("{position} must decide if he is taking : {}", player.hand);
+                    println!(
+                        "{position} must decide if he is taking : {}",
+                        self.state.distribution.hand(position)
+                    );
                     let answer = Confirm::new("Do you take ? (ESC to cancel)")
                         .with_default(false)
                         .prompt_skippable();
@@ -53,8 +52,8 @@ impl Bidding {
                         }
                         Ok(None) => {
                             println!("Interrupted.");
-                            self.deck.push(self.card_returned);
-                            return (None, None);
+                            self.deck.push(card_returned);
+                            return BiddingResult::Interrupted;
                         }
                         Err(_) => {
                             println!("Error with questionnaire, try again.");
@@ -64,13 +63,10 @@ impl Bidding {
             };
 
             if take {
-                println!(
-                    "Pushing returned card {} in {position} hand",
-                    self.card_returned
-                );
+                println!("Pushing returned card {card_returned} in {position} hand");
                 taker = Some(position);
-                player.hand.push(self.card_returned);
-                trump_color = self.card_returned.color();
+                self.state.distribution.hand(position).push(card_returned);
+                trump_color = card_returned.color();
                 break;
             } else {
                 println!("{position} did not take at first glance");
@@ -78,8 +74,8 @@ impl Bidding {
         }
         if taker.is_none() {
             println!("Second bidding turn");
-            'second_turn: for (position, player) in self.players.iter_mut() {
-                let chosen_color = if player.random {
+            'second_turn: for position in self.order() {
+                let chosen_color = if self.players[position].random {
                     if let Some(chosen_contract) = Contract::iter().choose(&mut rng) {
                         chosen_contract.color()
                     } else {
@@ -87,15 +83,12 @@ impl Bidding {
                     }
                 } else {
                     'choose_contract: loop {
-                        let card_returned_color = self.card_returned.color();
+                        let card_returned_color = card_returned.color();
                         let contracts: Vec<String> = Contract::iter()
                             .filter(|c| c.to_string() != card_returned_color.to_string())
                             .map(|c| c.to_string())
                             .collect();
-                        println!(
-                            "Nobody took: {}, please choose a color for trumps",
-                            self.card_returned
-                        );
+                        println!("Nobody took: {card_returned}, please choose a color for trumps");
                         let answer =
                             Select::new("Which color do you choose ? (ESC to cancel)", contracts)
                                 .prompt_skippable();
@@ -108,7 +101,7 @@ impl Bidding {
                             }
                             Ok(None) => {
                                 println!("Interrupted.");
-                                return (None, None);
+                                return BiddingResult::Interrupted;
                             }
                             Err(_) => {
                                 println!("Error with questionnaire, try again.");
@@ -118,40 +111,51 @@ impl Bidding {
                 };
                 if let Some(chosen_color) = chosen_color {
                     taker = Some(position);
-                    player.hand.push(self.card_returned);
+                    self.state.distribution.hand(position).push(card_returned);
                     trump_color = chosen_color;
                     break;
                 }
             }
         }
         let Some(taker) = taker else {
-            self.deck.push(self.card_returned);
-            for player in self.players.values_mut() {
-                self.deck.append(player.hand.give_all());
+            self.deck.push(card_returned);
+            for position in self.order() {
+                self.deck
+                    .append(self.state.distribution.hand(position).give_all());
             }
-            return (Some(Game::next_from_passed_bidding(self)), None);
+            return BiddingResult::NextGame(Game {
+                deck: self.deck,
+                players: self.players,
+                state: self.state.distribution.next(),
+                points: self.points,
+            });
         };
 
         println!("Taker is {taker}");
-        for (position, player) in self.players.iter_mut() {
+        for position in self.order() {
             if position == taker {
-                println!(
-                    "Giving {position} 2 more cards because taker ({})",
-                    player.len()
-                );
-                player.hand.append(self.deck.give(2));
+                println!("Giving {position} 2 more cards because taker");
+                self.state
+                    .distribution
+                    .hand(position)
+                    .append(self.deck.give(2));
             } else {
-                println!(
-                    "Giving {position} 3 more cards because others ({})",
-                    player.len()
-                );
-                player.hand.append(self.deck.give(3));
+                println!("Giving {position} 3 more cards because others");
+                self.state
+                    .distribution
+                    .hand(position)
+                    .append(self.deck.give(3));
             }
-            println!("{position} : {player}");
         }
-        (
-            None,
-            Some(InGame::new_from_bidding(self, taker, trump_color)),
-        )
+        BiddingResult::PlayGame(Game {
+            deck: self.deck,
+            players: self.players,
+            state: Playing {
+                distribution: self.state.distribution,
+                taker,
+                trump_color,
+            },
+            points: self.points,
+        })
     }
 }
