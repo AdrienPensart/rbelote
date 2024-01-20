@@ -1,9 +1,11 @@
 use crate::card::Card;
 use crate::hands::Hand;
-use derive_more::{Deref, Index, Into, IntoIterator};
+use crate::stack::Iter as StackIter;
+use derive_more::IntoIterator;
+use rand::{thread_rng, Rng};
 use std::fmt;
 
-#[derive(Default, Clone, Debug, IntoIterator, Index, Deref, Into)]
+#[derive(Default, Clone, Debug, IntoIterator)]
 pub struct Deck(Vec<Card>);
 
 impl fmt::Display for Deck {
@@ -17,16 +19,27 @@ impl fmt::Display for Deck {
 }
 
 impl Deck {
-    pub fn new(cards: Vec<Card>) -> Self {
-        Self(cards)
+    pub fn append_stack_iter(&mut self, stack_iter: &mut StackIter) {
+        self.0.extend(stack_iter);
     }
-    // pub fn len(&self) -> usize {
-    //     self.0.len()
-    // }
-    // pub fn is_empty(&self) -> bool {
-    //     self.0.is_empty()
-    // }
+    pub fn append_card(&mut self, card: &Card) {
+        self.0.push(*card);
+    }
     pub fn append_hand(&mut self, hand: Hand) {
         self.0.extend(hand);
+    }
+    pub fn append_deck(&mut self, deck: Self) {
+        self.0.extend(deck);
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    pub fn cut(&mut self) {
+        let mut rng = thread_rng();
+        let len = self.len();
+        self.0.rotate_left(rng.gen_range(0..len));
     }
 }

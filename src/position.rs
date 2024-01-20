@@ -30,12 +30,14 @@ impl Position {
             Self::North | Self::South => Team::NorthSouth,
         }
     }
-    pub const fn next(&self) -> &Self {
+
+    #[must_use]
+    pub const fn next(&self) -> Self {
         match self {
-            Self::East => &Self::South,
-            Self::West => &Self::North,
-            Self::North => &Self::East,
-            Self::South => &Self::West,
+            Self::East => Self::South,
+            Self::West => Self::North,
+            Self::North => Self::East,
+            Self::South => Self::West,
         }
     }
 }

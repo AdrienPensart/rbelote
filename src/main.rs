@@ -3,10 +3,11 @@ extern crate rand;
 #[macro_use]
 extern crate strum_macros;
 use crate::bidding::PlayOrNext;
-use crate::game::{Game, PlayingResult};
+use crate::game::Game;
 use crate::order::Order;
 use crate::player::Player;
 use crate::players::Players;
+use crate::playing::NextGameOrInterrupt;
 use crate::team::Team;
 use clap::Parser;
 use color_eyre::eyre::Result;
@@ -15,6 +16,7 @@ use std::error;
 use std::num::NonZeroUsize;
 use std::thread;
 use strum::IntoEnumIterator;
+use tracing::{error, info};
 
 pub mod bidding;
 pub mod card;
@@ -76,6 +78,7 @@ struct Opts {
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     color_eyre::install()?;
+    tracing_subscriber::fmt::init();
     let opts = Opts::parse();
     if opts.test {
         let mut children = vec![];
@@ -83,7 +86,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             let games = opts.games;
             children.push(thread::spawn(move || {
                 if let Err(e) = helpers::test_game(games) {
-                    eprintln!("{e}");
+                    error!("{e}");
                 }
             }));
         }
@@ -111,14 +114,14 @@ fn main() -> Result<(), Box<dyn error::Error>> {
             game = match bidding.playing_game_or_redistribute() {
                 PlayOrNext::NextGame(next_game) => next_game,
                 PlayOrNext::PlayGame(in_game) => match in_game.play()? {
-                    PlayingResult::NextGame(next_game) => next_game,
-                    PlayingResult::Interrupted => break 'current_game,
+                    NextGameOrInterrupt::NextGame(next_game) => next_game,
+                    NextGameOrInterrupt::Interrupted => break 'current_game,
                 },
                 PlayOrNext::Interrupted => break 'current_game,
             };
 
             for team in Team::iter() {
-                println!(
+                info!(
                     "Game number {}, team {} = {} points",
                     game.number(),
                     team,
@@ -126,7 +129,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                 );
             }
 
-            if game.full_random() {
+            if game.is_full_random() {
                 continue;
             }
             loop {
@@ -142,16 +145,16 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                         break 'current_game;
                     }
                     Ok(None) => {
-                        println!("Interrupted.");
+                        info!("Interrupted.");
                         break 'current_game;
                     }
                     Err(_) => {
-                        println!("Error with questionnaire, try again.");
+                        error!("Error with questionnaire, try again.");
                     }
                 };
             }
         }
-        println!("GAME ENDED");
+        info!("GAME ENDED");
     }
     Ok(())
 }

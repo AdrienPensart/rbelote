@@ -1,9 +1,10 @@
 use crate::errors::BeloteErrorKind;
+use colored::Colorize;
 use std::fmt;
 use std::str::FromStr;
 use strum_macros::Display;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Display)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Display, Hash)]
 pub enum Color {
     #[strum(serialize = "♥")]
     Heart,
@@ -29,7 +30,7 @@ impl FromStr for Color {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Display)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Display, Hash)]
 pub enum Value {
     #[strum(serialize = "7")]
     _7,
@@ -67,7 +68,7 @@ impl FromStr for Value {
     }
 }
 
-#[derive(Copy, Ord, Clone, Debug, Eq, PartialEq, PartialOrd)]
+#[derive(Copy, Ord, Clone, Debug, Eq, PartialEq, PartialOrd, Hash)]
 pub struct Card {
     color: Color,
     value: Value,
@@ -75,7 +76,14 @@ pub struct Card {
 
 impl fmt::Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}{}", self.color, self.value)
+        match self.color {
+            Color::Club | Color::Spade => {
+                write!(f, "{}{}", self.color.to_string().blue(), self.value)
+            }
+            Color::Diamond | Color::Heart => {
+                write!(f, "{}{}", self.color.to_string().red(), self.value)
+            }
+        }
     }
 }
 

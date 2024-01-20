@@ -19,6 +19,34 @@ pub struct Hand {
 }
 
 impl Hand {
+    pub const fn count(&self) -> u64 {
+        let mut length = 0;
+        if self.card0.is_some() {
+            length += 1;
+        }
+        if self.card1.is_some() {
+            length += 1;
+        }
+        if self.card2.is_some() {
+            length += 1;
+        }
+        if self.card3.is_some() {
+            length += 1;
+        }
+        if self.card4.is_some() {
+            length += 1;
+        }
+        if self.card5.is_some() {
+            length += 1;
+        }
+        if self.card6.is_some() {
+            length += 1;
+        }
+        if self.card7.is_some() {
+            length += 1;
+        }
+        length
+    }
     pub fn take(&mut self, card: Card) -> bool {
         if self.card0.is_none() {
             self.card0 = Some(card);
@@ -220,9 +248,6 @@ fn hand_tests() {
         card5: Some(card),
         ..Hand::default()
     };
-
-    println!("{hand}");
-
     assert!(hand.give(&card));
     assert!(hand == Hand::default());
 }

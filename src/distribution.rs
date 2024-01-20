@@ -6,11 +6,12 @@ use crate::hands::{Hand, Hands};
 use crate::initial::Initial;
 use crate::order::Order;
 use crate::position::Position;
-use crate::stack::Stack;
+use crate::stack::Iter as StackIter;
 use crate::traits::PlayingOrder;
 use derive_more::Constructor;
+use tracing::info;
 
-#[derive(Debug, Clone, Copy, Constructor)]
+#[derive(Constructor)]
 pub struct Distribution {
     hands: Hands,
     initial: Initial,
@@ -26,17 +27,14 @@ impl Distribution {
     pub fn hand(&self, position: Position) -> &Hand {
         &self.hands[position]
     }
-    pub fn next(self, stack: Stack) -> Initial {
-        self.initial.next(stack)
+    pub fn next(self, deck: Deck) -> Initial {
+        self.initial.next(deck)
     }
     pub const fn number(&self) -> u64 {
         self.initial.number()
     }
-    pub const fn stack(&self) -> Stack {
-        self.initial.stack()
-    }
-    pub fn stack_mut(&mut self) -> &mut Stack {
-        self.initial.stack_mut()
+    pub fn stack_iter(&mut self) -> &mut StackIter {
+        self.initial.stack_iter()
     }
 }
 
@@ -47,13 +45,15 @@ impl PlayingOrder for Game<Distribution> {
 }
 
 impl Game<Distribution> {
-    pub fn bidding(self) -> Result<Game<Bidding>, BeloteErrorKind> {
-        let card_returned = self.state().stack().returned_card();
-        println!("Card returned: {card_returned}");
+    pub fn bidding(mut self) -> Result<Game<Bidding>, BeloteErrorKind> {
+        let Some(card_returned) = self.state_mut().stack_iter().next() else {
+            return Err(BeloteErrorKind::InvalidCase("No card returned".to_string()));
+        };
+        info!("Card returned: {card_returned}");
         Ok(Game::new(
             self.players(),
             self.points(),
-            Bidding::new(card_returned, self.state().hands, self.state().initial),
+            Bidding::new(card_returned, self.state().hands, self.consume().initial),
         ))
     }
 }

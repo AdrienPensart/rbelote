@@ -3,6 +3,7 @@ use crate::order::Order;
 use crate::position::Position;
 use crate::team::Team;
 use std::fmt;
+use tracing::info;
 
 #[derive(Debug)]
 pub struct Turn {
@@ -34,27 +35,28 @@ impl Turn {
         let east = self.east?;
         let south = self.south?;
         let west = self.west?;
-        Some([north, east, south, west])
+        let cards = [north, east, south, west];
+        Some(cards)
     }
     pub fn put(&mut self, trump_color: Color, position: Position, card: &Card) -> bool {
-        println!(
+        info!(
             "Turn put card {card} for position {position}, master card was {:?}",
             self.master_card()
         );
         match self.master_card() {
             None => {
-                println!("First card is {card}, so player {position} becomes master");
+                info!("First card is {card}, so player {position} becomes master");
                 self.called_color = Some(card.color());
                 self.master_position = position;
             }
             Some(master_card) => {
                 if master_card.master(*card, trump_color) {
-                    println!(
+                    info!(
                         "Master card is {master_card}, so player {} stays master",
                         self.master_position
                     );
                 } else {
-                    println!("Master card is {card}, so player {position} becomes master");
+                    info!("Master card is {card}, so player {position} becomes master");
                     self.master_position = position;
                 }
             }
@@ -112,6 +114,9 @@ impl Turn {
     }
     pub const fn called_color(&self) -> Option<Color> {
         self.called_color
+    }
+    pub const fn number(&self) -> u64 {
+        self.number
     }
 }
 

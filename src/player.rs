@@ -1,9 +1,11 @@
 use crate::card::{Card, Color};
+use crate::constants::MAX_CARDS_BY_PLAYER;
 use crate::errors::BeloteErrorKind;
 use crate::hands::Hand;
 use crate::position::Position;
 use crate::turn::Turn;
 use std::fmt;
+use tracing::info;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Player {
@@ -30,8 +32,15 @@ impl Player {
         turn: &Turn,
         trump_color: Color,
     ) -> Result<Vec<Card>, BeloteErrorKind> {
-        println!("{position} : trump color is {trump_color}");
-        println!(
+        if hand.count() != MAX_CARDS_BY_PLAYER as u64 - turn.number() + 1 {
+            return Err(BeloteErrorKind::InvalidCase(format!(
+                "Bad number of cards for player {position} : {} it should be {}",
+                hand.count(),
+                MAX_CARDS_BY_PLAYER as u64 - turn.number() + 1
+            )));
+        }
+        info!("{position} : trump color is {trump_color}");
+        info!(
             "called color {:?} : master card {:?}",
             turn.called_color(),
             turn.master_card()
@@ -60,28 +69,28 @@ impl Player {
                     }
                 }
 
-                // println!("trumps: {:?}", trumps);
-                // println!("trumps_less: {:?}", trumps_less);
-                // println!("trumps_more: {:?}", trumps_more);
-                // println!("other_colors: {:?}", other_colors);
-                // println!("same_colors: {:?}", same_colors);
+                // info!("trumps: {:?}", trumps);
+                // info!("trumps_less: {:?}", trumps_less);
+                // info!("trumps_more: {:?}", trumps_more);
+                // info!("other_colors: {:?}", other_colors);
+                // info!("same_colors: {:?}", same_colors);
 
                 if called_color == trump_color {
                     if !trumps_more.is_empty() {
-                        println!("{position} : trump color asked, I must go up");
+                        info!("{position} : trump color asked, I must go up");
                         trumps_more
                     } else if !trumps_less.is_empty() {
-                        println!("{position} : trump color asked, but can't go up, going down");
+                        info!("{position} : trump color asked, but can't go up, going down");
                         trumps_less
                     } else {
-                        println!("{position} : no trump left I must piss");
+                        info!("{position} : no trump left I must piss");
                         other_colors
                     }
                 } else if !same_colors.is_empty() {
-                    println!("{position} : I have asked color");
+                    info!("{position} : I have asked color");
                     same_colors
                 } else if turn.master_team() == position.team() {
-                    println!(
+                    info!(
                         "{position} : my team ({}) is master, I can defausse or cut",
                         turn.master_team()
                     );
@@ -92,10 +101,10 @@ impl Player {
                     }
                     other_colors
                 } else if !trumps.is_empty() {
-                    println!("{position} : I can't give asked color, I must cut with a trump");
+                    info!("{position} : I can't give asked color, I must cut with a trump");
                     trumps
                 } else {
-                    println!("{position} : no trumps left, I must piss");
+                    info!("{position} : no trumps left, I must piss");
                     other_colors
                 }
             }

@@ -1,5 +1,4 @@
 use crate::card::{Card, Color};
-use crate::constants::RETURNED_CARD;
 use crate::contract::Contract;
 use crate::deck::Deck;
 use crate::game::Game;
@@ -8,13 +7,14 @@ use crate::initial::Initial;
 use crate::order::Order;
 use crate::playing::Playing;
 use crate::position::Position;
-use crate::stack::Stack;
+use crate::stack::Iter as StackIter;
 use crate::traits::PlayingOrder;
 use derive_more::Constructor;
 use inquire::{Confirm, Select};
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use std::str::FromStr;
 use strum::IntoEnumIterator;
+use tracing::info;
 
 pub enum PlayOrNext {
     NextGame(Game<Initial>),
@@ -22,7 +22,7 @@ pub enum PlayOrNext {
     Interrupted,
 }
 
-#[derive(Constructor, Copy, Clone)]
+#[derive(Constructor)]
 pub struct Bidding {
     card_returned: Card,
     hands: Hands,
@@ -34,16 +34,12 @@ impl Bidding {
         self.initial.order()
     }
 
-    pub const fn initial(self) -> Initial {
+    pub fn initial(self) -> Initial {
         self.initial
     }
 
-    pub const fn stack(&self) -> Stack {
-        self.initial.stack()
-    }
-
-    pub fn stack_mut(&mut self) -> &mut Stack {
-        self.initial.stack_mut()
+    pub fn stack_iter(&mut self) -> &mut StackIter {
+        self.initial.stack_iter()
     }
 
     pub fn hand(&self, position: Position) -> Hand {
@@ -54,8 +50,15 @@ impl Bidding {
         &mut self.hands[position]
     }
 
-    pub fn gather(&self) -> Deck {
+    pub fn gather_hands(&self) -> Deck {
         self.hands.gather()
+    }
+
+    pub fn complete_hand(&mut self, position: Position, count: usize) {
+        let cards = self.stack_iter().take(count).collect::<Vec<Card>>();
+        for card in cards {
+            self.hand_mut(position).take(card);
+        }
     }
 }
 
@@ -74,13 +77,13 @@ impl Game<Bidding> {
         let card_returned = self.state().card_returned;
         let mut trump_color = card_returned.color();
         let mut taker: Option<Position> = None;
-        println!("First bidding turn");
+        info!("First bidding turn");
         for position in order {
             let take = if players[position].random() {
                 rng.gen_bool(0.5)
             } else {
                 'questionnaire: loop {
-                    println!(
+                    info!(
                         "{position} must decide if he is taking : {}",
                         self.state().hand(position)
                     );
@@ -92,11 +95,11 @@ impl Game<Bidding> {
                             break 'questionnaire value;
                         }
                         Ok(None) => {
-                            println!("Interrupted.");
+                            info!("Interrupted.");
                             return PlayOrNext::Interrupted;
                         }
                         Err(_) => {
-                            println!("Error with questionnaire, try again.");
+                            info!("Error with questionnaire, try again.");
                         }
                     };
                 }
@@ -107,15 +110,19 @@ impl Game<Bidding> {
                 trump_color = card_returned.color();
                 break;
             }
-            println!("{position} did not take at first glance");
+            info!("{position} did not take at first glance");
         }
         if taker.is_none() {
-            println!("Second bidding turn");
+            info!("Second bidding turn");
             'second_turn: for position in order {
                 let chosen_color = if players[position].random() {
-                    Contract::iter()
-                        .choose(&mut rng)
-                        .and_then(|contract| contract.color())
+                    if rng.gen_bool(0.5) {
+                        Contract::iter()
+                            .choose(&mut rng)
+                            .and_then(|contract| contract.color())
+                    } else {
+                        None
+                    }
                 } else {
                     'choose_contract: loop {
                         let card_returned_color = card_returned.color();
@@ -123,7 +130,7 @@ impl Game<Bidding> {
                             .filter(|c| c.to_string() != card_returned_color.to_string())
                             .map(|c| c.to_string())
                             .collect();
-                        println!("Nobody took: {card_returned}, please choose a color for trumps");
+                        info!("Nobody took: {card_returned}, please choose a color for trumps");
                         let answer =
                             Select::new("Which color do you choose ? (ESC to cancel)", contracts)
                                 .prompt_skippable();
@@ -135,63 +142,52 @@ impl Game<Bidding> {
                                 continue 'second_turn;
                             }
                             Ok(None) => {
-                                println!("Interrupted.");
+                                info!("Interrupted.");
                                 return PlayOrNext::Interrupted;
                             }
                             Err(_) => {
-                                println!("Error with questionnaire, try again.");
+                                info!("Error with questionnaire, try again.");
                             }
                         };
                     }
                 };
                 if let Some(chosen_color) = chosen_color {
                     taker = Some(position);
-                    self.state_mut().hand_mut(position).take(card_returned);
                     trump_color = chosen_color;
                     break;
                 }
             }
         }
         let Some(taker) = taker else {
-            for (index, card) in self.state().gather().iter().enumerate() {
-                self.state_mut()
-                    .stack_mut()
-                    .set(RETURNED_CARD + 1 + index, card);
-            }
+            let mut deck = Deck::default();
+            deck.append_card(&card_returned);
+            deck.append_deck(self.state().gather_hands());
+            deck.append_stack_iter(self.state_mut().stack_iter());
 
             return PlayOrNext::NextGame(Game::new(
                 players,
                 points,
-                self.state().initial().next(self.state().stack()),
+                self.consume().initial().next(deck),
             ));
         };
 
-        println!("{taker} for color {trump_color}, we give him {card_returned}");
-        self.state_mut().hand_mut(taker).take(card_returned);
+        info!("{taker} for color {trump_color}, we give him {card_returned}");
+        let mut state = self.consume();
+        state.hand_mut(taker).take(card_returned);
 
-        let mut stack = self.state().stack();
         for position in order {
             if position == taker {
-                println!("Giving {position} 2 more cards because taker");
-                for card in stack.next_two_cards() {
-                    self.state_mut().hand_mut(position).take(*card);
-                }
+                info!("Giving {position} 2 more cards because taker");
+                state.complete_hand(position, 2);
             } else {
-                println!("Giving {position} 3 more cards because others");
-                for card in stack.next_three_cards() {
-                    self.state_mut().hand_mut(position).take(*card);
-                }
+                info!("Giving {position} 3 more cards because others");
+                state.complete_hand(position, 3);
             }
         }
         PlayOrNext::PlayGame(Game::new(
             players,
             points,
-            Playing::new(
-                taker,
-                self.state().hands,
-                trump_color,
-                self.state().initial(),
-            ),
+            Playing::new(taker, state.hands, trump_color, state.initial()),
         ))
     }
 }
