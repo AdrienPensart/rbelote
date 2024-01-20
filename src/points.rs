@@ -1,7 +1,7 @@
 use crate::team::Team;
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Points {
     north_south: u64,
     west_east: u64,

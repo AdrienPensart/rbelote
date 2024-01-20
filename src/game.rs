@@ -1,62 +1,50 @@
-use crate::card::Color;
-use crate::deck::Deck;
+use crate::card::Card;
+use crate::constants::{MAX_CARDS_BY_PLAYER, MAX_PLAYERS};
 use crate::distribution::Distribution;
 use crate::errors::BeloteErrorKind;
 use crate::hands::Hands;
-use crate::helpers::read_index;
+use crate::initial::Initial;
 use crate::order::Order;
 use crate::players::Players;
+use crate::playing::Playing;
 use crate::points::Points;
-use crate::position::Position;
+use crate::stack::Stack;
 use crate::team::Team;
+use crate::traits::BeloteRebelote;
 use crate::traits::PlayingOrder;
 use crate::turn::Turn;
+use derive_more::Constructor;
+use inquire::Select;
 use rand::seq::IteratorRandom;
+use std::str::FromStr;
 use strum::IntoEnumIterator;
 
-#[derive(Debug, Default)]
-pub struct Initial {
-    number: u64,
-    order: Order,
-}
-
-impl Initial {
-    pub fn new() -> Self {
-        Self {
-            number: 0,
-            order: Order::default(),
-        }
-    }
-    pub fn next(mut self) -> Self {
-        self.order.rotate();
-        self.number += 1;
-        self
-    }
-    pub fn order(&self) -> Order {
-        self.order
-    }
-    pub fn number(&self) -> u64 {
-        self.number
-    }
-}
-
-pub struct Playing {
-    pub taker: Position,
-    pub trump_color: Color,
-    pub distribution: Distribution,
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Constructor)]
 pub struct Game<State> {
-    pub deck: Deck,
-    pub players: Players,
-    pub points: Points,
-    pub state: State,
+    players: Players,
+    points: Points,
+    state: State,
 }
 
 impl<State> Game<State> {
-    pub fn points(&self) -> &Points {
-        &self.points
+    pub const fn state(&self) -> &State {
+        &self.state
+    }
+
+    pub const fn full_random(&self) -> bool {
+        self.players.full_random()
+    }
+
+    pub fn state_mut(&mut self) -> &mut State {
+        &mut self.state
+    }
+
+    pub const fn points(&self) -> Points {
+        self.points
+    }
+
+    pub const fn players(&self) -> Players {
+        self.players
     }
 }
 
@@ -67,42 +55,43 @@ impl PlayingOrder for Game<Initial> {
 }
 
 impl Game<Initial> {
-    pub fn number(&self) -> u64 {
-        self.state.number
+    pub const fn number(&self) -> u64 {
+        self.state.number()
     }
 
-    pub fn new(players: Players) -> Self {
+    pub fn default(players: Players, order: Order) -> Self {
         Self {
             players,
-            deck: Deck::build_deck(),
             points: Points::default(),
-            state: Initial::new(),
+            state: Initial::new(order),
         }
     }
 
-    pub fn distribute(self) -> Game<Distribution> {
-        let order = self.order();
-        let mut deck = self.deck;
+    pub fn distribute(mut self) -> Game<Distribution> {
         let mut hands = Hands::default();
-        for position in order {
-            hands[position].append(deck.give(3));
+
+        for position in self.order() {
+            for card in self.state_mut().stack_mut().next_three_cards() {
+                hands[position].take(*card);
+            }
         }
-        for position in order {
-            hands[position].append(deck.give(2));
+        for position in self.order() {
+            for card in self.state_mut().stack_mut().next_two_cards() {
+                hands[position].take(*card);
+            }
             println!("{position} : {}", hands[position]);
         }
-        Game {
-            points: self.points,
-            players: self.players,
-            deck,
-            state: Distribution::new(self.state, hands),
-        }
+        Game::new(
+            self.players,
+            self.points,
+            Distribution::new(hands, self.state),
+        )
     }
 }
 
 impl PlayingOrder for Game<Playing> {
     fn order(&self) -> Order {
-        self.state.distribution.order()
+        self.state().order()
     }
 }
 
@@ -117,126 +106,118 @@ impl Game<Playing> {
         for position in self.order() {
             if self
                 .state
-                .distribution
                 .hand(position)
-                .belote_rebelote(self.state.trump_color)
+                .belote_rebelote(self.state.trump_color())
             {
                 belote_rebelote = Some(position.team());
             }
         }
         let mut current_position = self.order()[0];
         let mut attack_points: u64 = 0;
-        let mut stack = Deck::default();
+        let mut stack = Stack::default();
 
-        for turn_number in 0..8 {
-            let mut turn = Turn::new(turn_number + 1);
+        for turn_number in 0..MAX_CARDS_BY_PLAYER {
+            let mut turn = Turn::new(turn_number as u64 + 1, self.state().order());
             loop {
-                println!("{current_position} to play for {turn_number}");
-                println!("{turn}");
+                print!("{current_position} to play for {turn}");
                 println!(
-                    "Hand of {current_position} : {}",
-                    self.state.distribution.hand(current_position)
+                    "Hand of {current_position} before playing : {}",
+                    self.state.hand(current_position)
                 );
-                println!("Choices :");
 
                 let choices = &self.players[current_position].choices(
-                    self.state.distribution.hand(current_position),
+                    self.state.hand(current_position),
                     &current_position,
                     &turn,
-                    self.state.trump_color,
+                    self.state.trump_color(),
                 )?;
                 if choices.is_empty() {
                     return Err(BeloteErrorKind::InvalidCase(
                         "no choices available".to_string(),
                     ));
                 }
-                for i in choices {
-                    println!(
-                        "\t{0: <2} : {1}",
-                        i,
-                        self.state.distribution.hand(current_position).0[*i]
-                    );
-                }
 
-                if let Some(master_card) = turn.master_card() {
-                    println!("{current_position} must play color {}", master_card.color())
-                } else {
-                    println!("{current_position} is first to play, you can choose a color")
-                }
+                turn.called_color().map_or_else(
+                    || println!("{current_position} is first to play, you can choose a color"),
+                    |called_color| println!("{current_position} must play color {called_color}"),
+                );
 
-                let index = if self.players[current_position].random {
+                let chosen_card = if self.players[current_position].random() {
                     let mut rng = rand::thread_rng();
-                    let Some(choice): Option<usize> = choices.iter().choose(&mut rng).copied()
+                    let Some(random_card): Option<Card> = choices.iter().choose(&mut rng).copied()
                     else {
                         return Err(BeloteErrorKind::InvalidCase(
-                            "invalid index for choice".to_string(),
+                            "cannot find a random card choice".to_string(),
                         ));
                     };
-                    choice
+                    random_card
                 } else {
                     loop {
-                        let choice_index = read_index();
-                        if choices.contains(&choice_index) {
-                            break choice_index;
-                        } else {
-                            println!("Error, please retry")
+                        let cards: Vec<String> = choices
+                            .iter()
+                            .map(std::string::ToString::to_string)
+                            .collect();
+                        let page_size = cards.len();
+                        let chosen_card =
+                            Select::new("Which card do you choose ? (ESC to cancel)", cards)
+                                .with_page_size(page_size)
+                                .prompt_skippable();
+                        match chosen_card {
+                            Ok(Some(maybe_chosen_card)) => {
+                                match Card::from_str(&maybe_chosen_card) {
+                                    Ok(chosen_card) => break chosen_card,
+                                    Err(e) => return Err(e),
+                                }
+                            }
+                            Ok(None) => {
+                                eprintln!("Interrupted.");
+                                return Ok(PlayingResult::Interrupted);
+                            }
+                            Err(_) => {
+                                eprintln!("Error with questionnaire, try again.");
+                                continue;
+                            }
                         }
                     }
                 };
 
-                let given_card = self
-                    .state
-                    .distribution
-                    .hand(current_position)
-                    .give_one_at(index);
-                turn.put(current_position, given_card);
-                match turn.master_card() {
-                    None => {
-                        println!(
-                            "First card is {given_card}, so player {current_position} becomes master"
-                        );
-                        turn.set_master_position(current_position);
-                    }
-                    Some(master_card) => {
-                        if master_card.master(given_card, self.state.trump_color) {
-                            println!(
-                                "Master card is {master_card}, so player {current_position} stays master"
-                            );
-                        } else {
-                            println!(
-                                "Master card is {given_card}, so player {current_position} becomes master"
-                            );
-                            turn.set_master_position(current_position);
-                        }
-                    }
+                if !self.state.hand_mut(current_position).give(&chosen_card) {
+                    return Err(BeloteErrorKind::InvalidCase(
+                        "cannot give chosen card".to_string(),
+                    ));
                 }
+                println!(
+                    "Hand of {current_position} after playing : {}",
+                    self.state.hand(current_position)
+                );
+                turn.put(self.state.trump_color(), current_position, &chosen_card);
                 if turn.finished() {
                     break;
                 }
-                current_position = current_position.next();
+                current_position = *(current_position.next());
             }
 
-            match turn.master_position() {
-                None => {
-                    return Err(BeloteErrorKind::InvalidCase(
-                        "no master position at the end of turn".to_string(),
-                    ))
+            current_position = turn.master_position();
+            println!("Fold master is player {}", turn.master_position());
+            let master_team = turn.master_team();
+            let Some(cards) = turn.take() else {
+                return Err(BeloteErrorKind::InvalidCase(
+                    "Cannot take turn cards".to_string(),
+                ));
+            };
+            for (index, card) in cards.iter().enumerate() {
+                let points = card.points(self.state.trump_color());
+                if self.state.taker().team() == master_team {
+                    attack_points += points;
                 }
-                Some(master_position) => {
-                    let cards = turn.take();
-                    let turn_points = cards.points(self.state.trump_color);
-                    println!("Fold master is player {}", master_position);
-                    stack.append(cards);
-                    if self.state.taker.team() == master_position.team() {
-                        attack_points += turn_points;
-                    }
-                }
+                let stack_index = turn_number * MAX_PLAYERS + index;
+                println!("Replacing {card} at stack index {stack_index}");
+                stack.set(stack_index, card);
             }
-
-            println!("Stack size: {}", stack.len());
+            println!("New attack points = {attack_points}");
         }
 
-        if current_position.team() == self.state.taker.team() {
+        if current_position.team() == self.state.taker().team() {
             attack_points += 10;
         }
 
@@ -257,16 +238,15 @@ impl Game<Playing> {
             if belote_rebelote == Some(team) {
                 self.points[team] += 20;
             }
-            if team == self.state.taker.team() {
+            if team == self.state.taker().team() {
                 self.points[team] += final_attack_points;
             } else {
                 self.points[team] += final_defense_points;
             }
         }
         Ok(PlayingResult::NextGame(Game {
-            deck: stack,
             players: self.players,
-            state: self.state.distribution.next(),
+            state: self.state.initial().next(stack),
             points: self.points,
         }))
     }

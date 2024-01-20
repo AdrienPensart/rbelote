@@ -5,7 +5,11 @@ pub enum BeloteErrorKind {
     #[error("Invalid case : {0}")]
     InvalidCase(String),
     #[error("Invalid color")]
-    InvalidColor,
+    InvalidColor(String),
+    #[error("Invalid card")]
+    InvalidCard(String),
+    #[error("Invalid value")]
+    InvalidValue(String),
     #[error("No taker or auctions not finished")]
     NoTaker,
 }

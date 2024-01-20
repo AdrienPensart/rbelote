@@ -1,13 +1,13 @@
-use crate::card::Color;
-use crate::deck::Deck;
+use crate::card::{Card, Color};
 use crate::errors::BeloteErrorKind;
+use crate::hands::Hand;
 use crate::position::Position;
 use crate::turn::Turn;
 use std::fmt;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Player {
-    pub random: bool,
+    random: bool,
 }
 
 impl fmt::Display for Player {
@@ -17,46 +17,54 @@ impl fmt::Display for Player {
 }
 
 impl Player {
-    pub fn new(random: bool) -> Player {
-        Player { random }
+    pub const fn new(random: bool) -> Self {
+        Self { random }
+    }
+    pub const fn random(&self) -> bool {
+        self.random
     }
     pub fn choices(
         &self,
-        hand: &Deck,
+        hand: &Hand,
         position: &Position,
         turn: &Turn,
         trump_color: Color,
-    ) -> Result<Vec<usize>, BeloteErrorKind> {
+    ) -> Result<Vec<Card>, BeloteErrorKind> {
         println!("{position} : trump color is {trump_color}");
-        let choices = match (turn.called(), turn.master_card(), turn.master_team()) {
-            (None, None, None) => (0..hand.len()).collect::<Vec<usize>>(),
-            (Some(called_color), Some(master_card), Some(master_team)) => {
+        println!(
+            "called color {:?} : master card {:?}",
+            turn.called_color(),
+            turn.master_card()
+        );
+        let choices = match (turn.called_color(), turn.master_card()) {
+            (None, None) => hand.into_iter().collect(),
+            (Some(called_color), Some(master_card)) => {
                 let mut trumps = Vec::new();
                 let mut trumps_less = Vec::new();
                 let mut trumps_more = Vec::new();
                 let mut other_colors = Vec::new();
                 let mut same_colors = Vec::new();
 
-                for (i, card) in hand.0.iter().enumerate() {
+                for card in hand.into_iter() {
                     if card.color() == trump_color {
-                        trumps.push(i);
-                        if card.points(trump_color) > master_card.points(trump_color) {
-                            trumps_more.push(i);
+                        trumps.push(card);
+                        if card.power(trump_color) > master_card.power(trump_color) {
+                            trumps_more.push(card);
                         } else {
-                            trumps_less.push(i);
+                            trumps_less.push(card);
                         }
                     } else if card.color() == called_color {
-                        same_colors.push(i);
+                        same_colors.push(card);
                     } else {
-                        other_colors.push(i);
+                        other_colors.push(card);
                     }
                 }
 
-                println!("trumps: {:?}", trumps);
-                println!("trumps_less: {:?}", trumps_less);
-                println!("trumps_more: {:?}", trumps_more);
-                println!("other_colors: {:?}", other_colors);
-                println!("same_colors: {:?}", same_colors);
+                // println!("trumps: {:?}", trumps);
+                // println!("trumps_less: {:?}", trumps_less);
+                // println!("trumps_more: {:?}", trumps_more);
+                // println!("other_colors: {:?}", other_colors);
+                // println!("same_colors: {:?}", same_colors);
 
                 if called_color == trump_color {
                     if !trumps_more.is_empty() {
@@ -72,14 +80,15 @@ impl Player {
                 } else if !same_colors.is_empty() {
                     println!("{position} : I have asked color");
                     same_colors
-                } else if master_team == position.team() {
+                } else if turn.master_team() == position.team() {
                     println!(
-                        "{position} : my team ({master_team}) is master, I can defausse or cut"
+                        "{position} : my team ({}) is master, I can defausse or cut",
+                        turn.master_team()
                     );
-                    if !trumps_more.is_empty() {
-                        other_colors.extend(trumps_more);
-                    } else {
+                    if trumps_more.is_empty() {
                         other_colors.extend(trumps_less);
+                    } else {
+                        other_colors.extend(trumps_more);
                     }
                     other_colors
                 } else if !trumps.is_empty() {

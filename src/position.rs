@@ -3,14 +3,13 @@ use crate::team::Team;
 use fixed_map::Key;
 use std::fmt;
 
-pub const MAX_PLAYERS: usize = 4;
-
+// KEEP THIS ORDER
 #[derive(Eq, PartialEq, Clone, Copy, Debug, Key, StaticVariantsArray, EnumIter, EnumCount)]
 pub enum Position {
     North,
+    East,
     South,
     West,
-    East,
 }
 
 impl fmt::Display for Position {
@@ -25,18 +24,18 @@ impl fmt::Display for Position {
 }
 
 impl Position {
-    pub fn team(&self) -> Team {
+    pub const fn team(&self) -> Team {
         match self {
             Self::East | Self::West => Team::WestEast,
             Self::North | Self::South => Team::NorthSouth,
         }
     }
-    pub fn next(&self) -> Self {
+    pub const fn next(&self) -> &Self {
         match self {
-            Self::East => Self::South,
-            Self::West => Self::North,
-            Self::North => Self::East,
-            Self::South => Self::West,
+            Self::East => &Self::South,
+            Self::West => &Self::North,
+            Self::North => &Self::East,
+            Self::South => &Self::West,
         }
     }
 }

@@ -2,12 +2,27 @@ use crate::player::Player;
 use crate::position::Position;
 use std::ops::Index;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Copy, Clone)]
 pub struct Players {
-    pub north: Player,
-    pub south: Player,
-    pub east: Player,
-    pub west: Player,
+    north: Player,
+    east: Player,
+    south: Player,
+    west: Player,
+}
+
+impl Players {
+    pub const fn new(north: Player, south: Player, east: Player, west: Player) -> Self {
+        Self {
+            north,
+            east,
+            south,
+            west,
+        }
+    }
+
+    pub const fn full_random(&self) -> bool {
+        self.north.random() && self.south.random() && self.east.random() && self.west.random()
+    }
 }
 
 impl Index<Position> for Players {

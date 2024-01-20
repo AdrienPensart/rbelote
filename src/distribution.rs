@@ -1,57 +1,59 @@
 use crate::bidding::Bidding;
 use crate::deck::Deck;
 use crate::errors::BeloteErrorKind;
-use crate::game::{Game, Initial};
-use crate::hands::Hands;
+use crate::game::Game;
+use crate::hands::{Hand, Hands};
+use crate::initial::Initial;
 use crate::order::Order;
 use crate::position::Position;
+use crate::stack::Stack;
 use crate::traits::PlayingOrder;
+use derive_more::Constructor;
 
+#[derive(Debug, Clone, Copy, Constructor)]
 pub struct Distribution {
     hands: Hands,
     initial: Initial,
 }
 
 impl Distribution {
-    pub fn new(initial: Initial, hands: Hands) -> Self {
-        Self { hands, initial }
-    }
-    pub fn order(&self) -> Order {
+    pub const fn order(&self) -> Order {
         self.initial.order()
     }
-    pub fn hand(&mut self, position: Position) -> &mut Deck {
-        &mut self.hands[position]
+    pub fn gather(self) -> Deck {
+        self.hands.gather()
     }
-    pub fn next(self) -> Initial {
-        self.initial.next()
+    pub fn hand(&self, position: Position) -> &Hand {
+        &self.hands[position]
     }
-    pub fn number(&self) -> u64 {
+    pub fn next(self, stack: Stack) -> Initial {
+        self.initial.next(stack)
+    }
+    pub const fn number(&self) -> u64 {
         self.initial.number()
+    }
+    pub const fn stack(&self) -> Stack {
+        self.initial.stack()
+    }
+    pub fn stack_mut(&mut self) -> &mut Stack {
+        self.initial.stack_mut()
     }
 }
 
 impl PlayingOrder for Game<Distribution> {
     fn order(&self) -> Order {
-        self.state.initial.order()
+        self.state().initial.order()
     }
 }
 
 impl Game<Distribution> {
-    pub fn bidding(mut self) -> Result<Game<Bidding>, BeloteErrorKind> {
-        let Some(card_returned) = self.deck.give_one() else {
-            return Err(BeloteErrorKind::InvalidCase(
-                "cannot get a returned card".to_string(),
-            ));
-        };
+    pub fn bidding(self) -> Result<Game<Bidding>, BeloteErrorKind> {
+        let card_returned = self.state().stack().returned_card();
         println!("Card returned: {card_returned}");
-        Ok(Game {
-            points: self.points,
-            deck: self.deck,
-            players: self.players,
-            state: Bidding {
-                distribution: self.state,
-                card_returned,
-            },
-        })
+        Ok(Game::new(
+            self.players(),
+            self.points(),
+            Bidding::new(card_returned, self.state().hands, self.state().initial),
+        ))
     }
 }

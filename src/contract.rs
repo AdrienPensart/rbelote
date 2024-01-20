@@ -14,7 +14,7 @@ pub enum Contract {
 }
 
 impl Contract {
-    pub fn color(&self) -> Option<Color> {
+    pub const fn color(&self) -> Option<Color> {
         match self {
             Self::Club => Some(Color::Club),
             Self::Diamond => Some(Color::Diamond),
