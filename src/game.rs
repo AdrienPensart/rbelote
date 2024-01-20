@@ -2,24 +2,20 @@ use crate::players::Players;
 use crate::points::Points;
 use crate::team::Team;
 
-use derive_more::Constructor;
+use derive_more::{Constructor, Deref, DerefMut};
 
-#[derive(Debug, Constructor)]
+#[derive(Debug, Constructor, Deref, DerefMut)]
 pub struct Game<State> {
     players: Players,
     points: Points,
-    state: State,
+    #[deref]
+    #[deref_mut]
+    state: Box<State>,
 }
 
 impl<State> Game<State> {
-    pub fn consume(self) -> State {
+    pub fn consume(self) -> Box<State> {
         self.state
-    }
-    pub const fn state(&self) -> &State {
-        &self.state
-    }
-    pub fn state_mut(&mut self) -> &mut State {
-        &mut self.state
     }
     pub const fn is_full_random(&self) -> bool {
         self.players.full_random()

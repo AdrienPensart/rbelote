@@ -37,7 +37,6 @@ pub mod points;
 pub mod position;
 pub mod stack;
 pub mod team;
-pub mod traits;
 pub mod turn;
 
 #[derive(Parser, Debug)]

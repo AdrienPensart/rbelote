@@ -7,14 +7,13 @@ use crate::initial::Initial;
 use crate::order::Order;
 use crate::position::Position;
 use crate::stack::Iter as StackIter;
-use crate::traits::PlayingOrder;
 use derive_more::Constructor;
 use tracing::info;
 
 #[derive(Constructor)]
 pub struct Distribution {
     hands: Hands,
-    initial: Initial,
+    initial: Box<Initial>,
 }
 
 impl Distribution {
@@ -27,7 +26,7 @@ impl Distribution {
     pub fn hand(&self, position: Position) -> &Hand {
         &self.hands[position]
     }
-    pub fn next(self, deck: Deck) -> Initial {
+    pub fn next(self, deck: Deck) -> Box<Initial> {
         self.initial.next(deck)
     }
     pub const fn number(&self) -> u64 {
@@ -38,22 +37,20 @@ impl Distribution {
     }
 }
 
-impl PlayingOrder for Game<Distribution> {
-    fn order(&self) -> Order {
-        self.state().initial.order()
-    }
-}
-
 impl Game<Distribution> {
     pub fn bidding(mut self) -> Result<Game<Bidding>, BeloteErrorKind> {
-        let Some(card_returned) = self.state_mut().stack_iter().next() else {
+        let Some(card_returned) = self.stack_iter().next() else {
             return Err(BeloteErrorKind::InvalidCase("No card returned".to_string()));
         };
         info!("Card returned: {card_returned}");
         Ok(Game::new(
             self.players(),
             self.points(),
-            Bidding::new(card_returned, self.state().hands, self.consume().initial),
+            Box::new(Bidding::new(
+                card_returned,
+                self.hands,
+                self.consume().initial,
+            )),
         ))
     }
 }

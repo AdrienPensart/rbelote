@@ -6,7 +6,6 @@ use crate::order::Order;
 use crate::players::Players;
 use crate::points::Points;
 use crate::stack::{Iter as StackIter, Stack};
-use crate::traits::PlayingOrder;
 use tracing::info;
 
 pub struct Initial {
@@ -26,7 +25,7 @@ impl Initial {
         }
     }
     #[must_use]
-    pub fn next(mut self, mut deck: Deck) -> Self {
+    pub fn next(mut self: Box<Self>, mut deck: Deck) -> Box<Self> {
         self.order.rotate();
         self.number += 1;
         deck.cut();
@@ -53,23 +52,19 @@ impl Initial {
 }
 
 impl Game<Initial> {
-    pub const fn number(&self) -> u64 {
-        self.state().number()
-    }
-
     pub fn default(players: Players, order: Order) -> Self {
-        Self::new(players, Points::default(), Initial::new(order))
+        Self::new(players, Points::default(), Box::new(Initial::new(order)))
     }
 
     pub fn distribute(mut self) -> Game<Distribution> {
         let mut hands = Hands::default();
-        for position in self.state().order() {
-            for card in self.state_mut().stack_iter().take(3) {
+        for position in self.order() {
+            for card in self.stack_iter().take(3) {
                 hands[position].take(card);
             }
         }
-        for position in self.state().order() {
-            for card in self.state_mut().stack_iter().take(2) {
+        for position in self.order() {
+            for card in self.stack_iter().take(2) {
                 hands[position].take(card);
             }
             info!("{position} : {}", hands[position]);
@@ -77,13 +72,7 @@ impl Game<Initial> {
         Game::new(
             self.players(),
             self.points(),
-            Distribution::new(hands, self.consume()),
+            Box::new(Distribution::new(hands, self.consume())),
         )
-    }
-}
-
-impl PlayingOrder for Game<Initial> {
-    fn order(&self) -> Order {
-        self.state().order()
     }
 }

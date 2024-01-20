@@ -9,8 +9,6 @@ use crate::initial::Initial;
 use crate::order::Order;
 use crate::position::Position;
 use crate::team::Team;
-use crate::traits::BeloteRebelote;
-use crate::traits::PlayingOrder;
 use crate::turn::Turn;
 use derive_more::Constructor;
 use inquire::Select;
@@ -23,18 +21,13 @@ pub struct Playing {
     taker: Position,
     hands: Hands,
     trump_color: Color,
-    initial: Initial,
+    initial: Box<Initial>,
 }
 
 impl Playing {
     pub fn hand(&self, position: Position) -> &Hand {
         &self.hands[position]
     }
-
-    pub fn initial(self) -> Initial {
-        self.initial
-    }
-
     pub fn add_litige(&mut self, litige: u64) {
         self.initial.add_litige(litige);
     }
@@ -64,12 +57,6 @@ impl Playing {
     }
 }
 
-impl PlayingOrder for Game<Playing> {
-    fn order(&self) -> Order {
-        self.state().order()
-    }
-}
-
 pub enum NextGameOrInterrupt {
     NextGame(Game<Initial>),
     Interrupted,
@@ -79,11 +66,7 @@ impl Game<Playing> {
     pub fn play(mut self) -> Result<NextGameOrInterrupt, BeloteErrorKind> {
         let mut belote_rebelote: Option<Team> = None;
         for position in self.order() {
-            if self
-                .state()
-                .hand(position)
-                .belote_rebelote(self.state().trump_color())
-            {
+            if self.hand(position).belote_rebelote(self.trump_color()) {
                 belote_rebelote = Some(position.team());
             }
         }
@@ -93,19 +76,19 @@ impl Game<Playing> {
         let mut deck = Deck::default();
 
         for turn_number in 0..MAX_CARDS_BY_PLAYER {
-            let mut turn = Turn::new(turn_number as u64 + 1, self.state().order());
+            let mut turn = Turn::new(turn_number as u64 + 1, self.order());
             loop {
                 info!("{current_position} to play for {turn}");
                 info!(
                     "Hand of {current_position} before playing : {}",
-                    self.state().hand(current_position)
+                    self.hand(current_position)
                 );
 
                 let choices = &self.players()[current_position].choices(
-                    self.state().hand(current_position),
+                    self.hand(current_position),
                     &current_position,
                     &turn,
-                    self.state().trump_color(),
+                    self.trump_color(),
                 )?;
                 if choices.is_empty() {
                     return Err(BeloteErrorKind::InvalidCase(
@@ -157,20 +140,16 @@ impl Game<Playing> {
                     }
                 };
 
-                if !self
-                    .state_mut()
-                    .hand_mut(current_position)
-                    .give(&chosen_card)
-                {
+                if !self.hand_mut(current_position).give(&chosen_card) {
                     return Err(BeloteErrorKind::InvalidCase(
                         "cannot give chosen card".to_string(),
                     ));
                 }
                 info!(
                     "Hand of {current_position} after playing : {}",
-                    self.state().hand(current_position)
+                    self.hand(current_position)
                 );
-                turn.put(self.state().trump_color(), current_position, &chosen_card);
+                turn.put(self.trump_color(), current_position, &chosen_card);
                 if turn.finished() {
                     break;
                 }
@@ -186,9 +165,9 @@ impl Game<Playing> {
                 ));
             };
             for card in cards {
-                let points = card.points(self.state().trump_color());
+                let points = card.points(self.trump_color());
                 warn!("{card} : {points} points");
-                if self.state().taker().team() == master_team {
+                if self.taker().team() == master_team {
                     attack_points += points;
                 } else {
                     defense_points += points;
@@ -207,7 +186,7 @@ impl Game<Playing> {
             info!("New defense points = {defense_points}");
         }
 
-        if current_position.team() == self.state().taker().team() {
+        if current_position.team() == self.taker().team() {
             attack_points += 10;
         }
 
@@ -219,22 +198,22 @@ impl Game<Playing> {
 
         let (final_attack_points, final_defense_points): (u64, u64) = if attack_points == 0 {
             // capot for defense
-            (0, 252 + self.state_mut().reset_litige())
+            (0, 252 + self.reset_litige())
         } else if attack_points >= 1 && attack_points < contract {
             // dedans
-            (0, 182 + self.state_mut().reset_litige())
+            (0, 182 + self.reset_litige())
         } else if attack_points == contract {
             // litige
-            self.state_mut().add_litige(contract);
+            self.add_litige(contract);
             (0, contract)
         } else if attack_points > contract && attack_points < total_points {
             // reussite
             (
-                attack_points + self.state_mut().reset_litige(),
+                attack_points + self.reset_litige(),
                 total_points - attack_points,
             )
         } else if attack_points == total_points {
-            (252 + self.state_mut().reset_litige(), 0)
+            (252 + self.reset_litige(), 0)
         } else {
             return Err(BeloteErrorKind::InvalidCase(format!(
                 "bad points number : {attack_points}"
@@ -244,13 +223,13 @@ impl Game<Playing> {
         if let Some(belote_rebelote_team) = belote_rebelote {
             self.add_points(belote_rebelote_team, 20);
         }
-        self.add_points(self.state().taker().team(), final_attack_points);
-        self.add_points(self.state().taker().team().other(), final_defense_points);
+        self.add_points(self.taker().team(), final_attack_points);
+        self.add_points(self.taker().team().other(), final_defense_points);
 
         Ok(NextGameOrInterrupt::NextGame(Game::new(
             self.players(),
             self.points(),
-            self.consume().initial().next(deck),
+            self.consume().initial.next(deck),
         )))
     }
 }

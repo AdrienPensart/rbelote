@@ -1,7 +1,7 @@
 use crate::card::{Card, Color, Value};
 use crate::deck::Deck;
 use crate::position::Position;
-use crate::traits::BeloteRebelote;
+// use crate::traits::BeloteRebelote;
 use derive_more::IntoIterator;
 use std::fmt;
 use std::ops::{Index, IndexMut};
@@ -19,6 +19,21 @@ pub struct Hand {
 }
 
 impl Hand {
+    pub fn belote_rebelote(&self, trump_color: Color) -> bool {
+        let mut queen = false;
+        let mut king = false;
+        for card in self.into_iter() {
+            if card.color() == trump_color {
+                if card.value() == Value::Queen {
+                    queen = true;
+                } else if card.value() == Value::King {
+                    king = true;
+                }
+            }
+        }
+        queen && king
+    }
+
     pub const fn count(&self) -> u64 {
         let mut length = 0;
         if self.card0.is_some() {
@@ -178,23 +193,6 @@ impl IntoIterator for Hand {
         .into_iter()
         .flatten();
         cards.into_iter()
-    }
-}
-
-impl BeloteRebelote for Hand {
-    fn belote_rebelote(&self, trump_color: Color) -> bool {
-        let mut queen = false;
-        let mut king = false;
-        for card in self.into_iter() {
-            if card.color() == trump_color {
-                if card.value() == Value::Queen {
-                    queen = true;
-                } else if card.value() == Value::King {
-                    king = true;
-                }
-            }
-        }
-        queen && king
     }
 }
 

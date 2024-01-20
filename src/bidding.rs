@@ -8,7 +8,6 @@ use crate::order::Order;
 use crate::playing::Playing;
 use crate::position::Position;
 use crate::stack::Iter as StackIter;
-use crate::traits::PlayingOrder;
 use derive_more::Constructor;
 use inquire::{Confirm, Select};
 use rand::{seq::IteratorRandom, thread_rng, Rng};
@@ -26,7 +25,7 @@ pub enum PlayOrNext {
 pub struct Bidding {
     card_returned: Card,
     hands: Hands,
-    initial: Initial,
+    initial: Box<Initial>,
 }
 
 impl Bidding {
@@ -34,7 +33,7 @@ impl Bidding {
         self.initial.order()
     }
 
-    pub fn initial(self) -> Initial {
+    pub fn initial(self) -> Box<Initial> {
         self.initial
     }
 
@@ -62,19 +61,13 @@ impl Bidding {
     }
 }
 
-impl PlayingOrder for Game<Bidding> {
-    fn order(&self) -> Order {
-        self.state().order()
-    }
-}
-
 impl Game<Bidding> {
     pub fn playing_game_or_redistribute(mut self) -> PlayOrNext {
         let order = self.order();
         let players = self.players();
         let points = self.points();
         let mut rng = thread_rng();
-        let card_returned = self.state().card_returned;
+        let card_returned = self.card_returned;
         let mut trump_color = card_returned.color();
         let mut taker: Option<Position> = None;
         info!("First bidding turn");
@@ -85,7 +78,7 @@ impl Game<Bidding> {
                 'questionnaire: loop {
                     info!(
                         "{position} must decide if he is taking : {}",
-                        self.state().hand(position)
+                        self.hand(position)
                     );
                     let answer = Confirm::new("Do you take ? (ESC to cancel)")
                         .with_default(false)
@@ -161,8 +154,8 @@ impl Game<Bidding> {
         let Some(taker) = taker else {
             let mut deck = Deck::default();
             deck.append_card(&card_returned);
-            deck.append_deck(self.state().gather_hands());
-            deck.append_stack_iter(self.state_mut().stack_iter());
+            deck.append_deck(self.gather_hands());
+            deck.append_stack_iter(self.stack_iter());
 
             return PlayOrNext::NextGame(Game::new(
                 players,
@@ -187,7 +180,12 @@ impl Game<Bidding> {
         PlayOrNext::PlayGame(Game::new(
             players,
             points,
-            Playing::new(taker, state.hands, trump_color, state.initial()),
+            Box::new(Playing::new(
+                taker,
+                state.hands,
+                trump_color,
+                state.initial(),
+            )),
         ))
     }
 }
