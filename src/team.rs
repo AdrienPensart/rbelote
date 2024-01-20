@@ -8,10 +8,11 @@ pub enum Team {
 }
 
 impl Team {
-    pub const fn other(&self) -> &Self {
+    #[must_use]
+    pub const fn other(&self) -> Self {
         match self {
-            Self::NorthSouth => &Self::WestEast,
-            Self::WestEast => &Self::NorthSouth,
+            Self::NorthSouth => Self::WestEast,
+            Self::WestEast => Self::NorthSouth,
         }
     }
 }

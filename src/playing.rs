@@ -6,7 +6,6 @@ use crate::errors::BeloteErrorKind;
 use crate::game::Game;
 use crate::hands::{Hand, Hands};
 use crate::initial::Initial;
-
 use crate::order::Order;
 use crate::position::Position;
 use crate::team::Team;
@@ -17,7 +16,6 @@ use derive_more::Constructor;
 use inquire::Select;
 use rand::seq::IteratorRandom;
 use std::str::FromStr;
-use strum::IntoEnumIterator;
 use tracing::{info, warn};
 
 #[derive(Constructor)]
@@ -35,6 +33,14 @@ impl Playing {
 
     pub fn initial(self) -> Initial {
         self.initial
+    }
+
+    pub fn add_litige(&mut self, litige: u64) {
+        self.initial.add_litige(litige);
+    }
+
+    pub fn reset_litige(&mut self) -> u64 {
+        self.initial.reset_litige()
     }
 
     pub const fn taker(&self) -> Position {
@@ -205,29 +211,42 @@ impl Game<Playing> {
             attack_points += 10;
         }
 
-        let (final_attack_points, final_defense_points): (u64, u64) = match attack_points {
-            0 => (0, 252),                                    // capot for defense
-            1..=80 => (0, 162),                               // chute
-            81 => (81, 81),                                   // litige
-            82..=161 => (attack_points, 162 - attack_points), // reussite
-            162 => (252, 0),                                  // capot for attack
-            _ => {
-                return Err(BeloteErrorKind::InvalidCase(format!(
-                    "bad points number : {attack_points}"
-                )))
-            }
+        let (contract, total_points) = if belote_rebelote.is_some() {
+            (92, 182)
+        } else {
+            (81, 162)
         };
 
-        for team in Team::iter() {
-            if belote_rebelote == Some(team) {
-                self.add_points(team, 20);
-            }
-            if team == self.state().taker().team() {
-                self.add_points(team, final_attack_points);
-            } else {
-                self.add_points(team, final_defense_points);
-            }
+        let (final_attack_points, final_defense_points): (u64, u64) = if attack_points == 0 {
+            // capot for defense
+            (0, 252 + self.state_mut().reset_litige())
+        } else if attack_points >= 1 && attack_points < contract {
+            // dedans
+            (0, 182 + self.state_mut().reset_litige())
+        } else if attack_points == contract {
+            // litige
+            self.state_mut().add_litige(contract);
+            (0, contract)
+        } else if attack_points > contract && attack_points < total_points {
+            // reussite
+            (
+                attack_points + self.state_mut().reset_litige(),
+                total_points - attack_points,
+            )
+        } else if attack_points == total_points {
+            (252 + self.state_mut().reset_litige(), 0)
+        } else {
+            return Err(BeloteErrorKind::InvalidCase(format!(
+                "bad points number : {attack_points}"
+            )));
+        };
+
+        if let Some(belote_rebelote_team) = belote_rebelote {
+            self.add_points(belote_rebelote_team, 20);
         }
+        self.add_points(self.state().taker().team(), final_attack_points);
+        self.add_points(self.state().taker().team().other(), final_defense_points);
+
         Ok(NextGameOrInterrupt::NextGame(Game::new(
             self.players(),
             self.points(),

@@ -13,6 +13,7 @@ pub struct Initial {
     number: u64,
     order: Order,
     stack_iter: StackIter,
+    litige: u64,
 }
 
 impl Initial {
@@ -21,6 +22,7 @@ impl Initial {
             order,
             number: 0,
             stack_iter: Box::new(Stack::default().into_iter()),
+            litige: 0,
         }
     }
     #[must_use]
@@ -30,6 +32,14 @@ impl Initial {
         deck.cut();
         self.stack_iter = Box::new(deck.into_iter());
         self
+    }
+    pub fn add_litige(&mut self, litige: u64) {
+        self.litige += litige;
+    }
+    pub fn reset_litige(&mut self) -> u64 {
+        let old_litige = self.litige;
+        self.litige = 0;
+        old_litige
     }
     pub const fn order(&self) -> Order {
         self.order
