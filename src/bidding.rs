@@ -65,7 +65,7 @@ impl Game<Bidding> {
         info!("First bidding turn");
         for position in order {
             let take = if players[position].random() {
-                rng.gen_bool(0.5)
+                rng.gen_bool(players.randomization())
             } else {
                 'questionnaire: loop {
                     info!(
@@ -97,11 +97,12 @@ impl Game<Bidding> {
             }
             info!("{position} did not take at first glance");
         }
+        println!("randomization: {}", players.randomization());
         if taker.is_none() {
             info!("Second bidding turn");
             'second_turn: for position in order {
                 let chosen_color = if players[position].random() {
-                    if rng.gen_bool(0.5) {
+                    if rng.gen_bool(players.randomization()) {
                         Contract::iter()
                             .choose(&mut rng)
                             .and_then(|contract| contract.color())
@@ -153,23 +154,23 @@ impl Game<Bidding> {
         };
 
         info!("{taker} for color {trump_color}, we give him {card_returned}");
-        let mut state = self.into();
-        state.hand_mut(taker).take(card_returned);
+        let mut bidding = self.into();
+        bidding.hand_mut(taker).take(card_returned);
 
         for position in order {
             if position == taker {
                 info!("Giving {position} 2 more cards because taker");
-                state.complete_hand(position, 2);
+                bidding.complete_hand(position, 2);
             } else {
                 info!("Giving {position} 3 more cards because others");
-                state.complete_hand(position, 3);
+                bidding.complete_hand(position, 3);
             }
         }
 
         PlayOrNext::PlayGame(Game::new(
             players,
             points,
-            Playing::new(taker, state.hands, trump_color, state.into()),
+            Playing::new(taker, bidding.hands, trump_color, bidding.into()),
         ))
     }
 }

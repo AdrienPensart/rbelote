@@ -23,6 +23,18 @@ impl Players {
     pub const fn full_random(&self) -> bool {
         self.north.random() && self.south.random() && self.east.random() && self.west.random()
     }
+
+    pub fn randomization(&self) -> f64 {
+        let random_players = f64::from(self.north.random())
+            + f64::from(self.east.random())
+            + f64::from(self.south.random())
+            + f64::from(self.west.random());
+        if random_players.is_normal() {
+            1.0 / random_players
+        } else {
+            0.0
+        }
+    }
 }
 
 impl Index<Position> for Players {
