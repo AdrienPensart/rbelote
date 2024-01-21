@@ -10,21 +10,27 @@ use crate::order::Order;
 use crate::position::Position;
 use crate::team::Team;
 use crate::turn::Turn;
-use derive_more::Constructor;
+use derive_more::{Constructor, Deref, DerefMut};
 use inquire::Select;
 use rand::seq::IteratorRandom;
 use std::str::FromStr;
 use tracing::{info, warn};
 
-#[derive(Constructor)]
+#[derive(Constructor, Deref, DerefMut)]
 pub struct Playing {
     taker: Position,
     hands: Hands,
     trump_color: Color,
-    initial: Box<Initial>,
+    #[deref]
+    #[deref_mut]
+    initial: Initial,
 }
 
 impl Playing {
+    pub fn into(self) -> Initial {
+        self.initial
+    }
+
     pub fn hand(&self, position: Position) -> &Hand {
         &self.hands[position]
     }
@@ -225,11 +231,11 @@ impl Game<Playing> {
         }
         self.add_points(self.taker().team(), final_attack_points);
         self.add_points(self.taker().team().other(), final_defense_points);
-
+        let players = self.players();
+        let points = self.points();
+        let initial = self.into().into().next(deck);
         Ok(NextGameOrInterrupt::NextGame(Game::new(
-            self.players(),
-            self.points(),
-            self.consume().initial.next(deck),
+            players, points, initial,
         )))
     }
 }

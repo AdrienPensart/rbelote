@@ -1,5 +1,6 @@
 use crate::players::Players;
 use crate::points::Points;
+// use crate::state::State;
 use crate::team::Team;
 
 use derive_more::{Constructor, Deref, DerefMut};
@@ -10,11 +11,11 @@ pub struct Game<State> {
     points: Points,
     #[deref]
     #[deref_mut]
-    state: Box<State>,
+    state: State,
 }
 
 impl<State> Game<State> {
-    pub fn consume(self) -> Box<State> {
+    pub fn into(self) -> State {
         self.state
     }
     pub const fn is_full_random(&self) -> bool {

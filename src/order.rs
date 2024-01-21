@@ -46,7 +46,7 @@ impl Order {
     pub const fn first(&self) -> Position {
         self.0[0]
     }
-    pub fn rotate(&mut self) {
+    pub fn rotate(mut self) {
         self.0.rotate_left(1);
     }
 }
@@ -61,7 +61,7 @@ fn order_tests() {
     assert!(order_iter1.next() == Some(Position::West));
     assert!(order_iter1.next().is_none());
 
-    let mut order2 = Order::default();
+    let order2 = Order::default();
     order2.rotate();
     let mut order_iter2 = order2.into_iter();
     assert!(order_iter2.next() == Some(Position::East));

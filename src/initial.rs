@@ -22,13 +22,14 @@ pub struct Initial {
 
 impl Initial {
     #[must_use]
-    pub fn next(mut self: Box<Self>, mut deck: Deck) -> Box<Self> {
+    pub fn next(mut self, mut deck: Deck) -> Self {
+        deck.cut();
         self.order.rotate();
         self.number += 1;
-        deck.cut();
         self.stack_iter = StackIter::from_deck(deck);
         self
     }
+
     pub fn add_litige(&mut self, litige: u64) {
         self.litige += litige;
     }
@@ -50,7 +51,7 @@ impl Initial {
 
 impl Game<Initial> {
     pub fn default(players: Players, order: Order) -> Self {
-        Self::new(players, Points::default(), Box::new(Initial::new(order)))
+        Self::new(players, Points::default(), Initial::new(order))
     }
 
     pub fn distribute(mut self) -> Game<Distribution> {
@@ -69,7 +70,7 @@ impl Game<Initial> {
         Game::new(
             self.players(),
             self.points(),
-            Box::new(Distribution::new(hands, self.consume())),
+            Distribution::new(hands, self.into()),
         )
     }
 }

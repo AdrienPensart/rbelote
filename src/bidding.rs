@@ -4,11 +4,9 @@ use crate::deck::Deck;
 use crate::game::Game;
 use crate::hands::{Hand, Hands};
 use crate::initial::Initial;
-use crate::order::Order;
 use crate::playing::Playing;
 use crate::position::Position;
-use crate::stack::Iter as StackIter;
-use derive_more::Constructor;
+use derive_more::{Constructor, Deref, DerefMut};
 use inquire::{Confirm, Select};
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use std::str::FromStr;
@@ -21,24 +19,18 @@ pub enum PlayOrNext {
     Interrupted,
 }
 
-#[derive(Constructor)]
+#[derive(Constructor, Deref, DerefMut)]
 pub struct Bidding {
     card_returned: Card,
     hands: Hands,
-    initial: Box<Initial>,
+    #[deref]
+    #[deref_mut]
+    initial: Initial,
 }
 
 impl Bidding {
-    pub const fn order(&self) -> Order {
-        self.initial.order()
-    }
-
-    pub fn initial(self) -> Box<Initial> {
+    pub fn into(self) -> Initial {
         self.initial
-    }
-
-    pub fn stack_iter(&mut self) -> &mut StackIter {
-        self.initial.stack_iter()
     }
 
     pub fn hand(&self, position: Position) -> Hand {
@@ -156,16 +148,12 @@ impl Game<Bidding> {
             deck.append_card(&card_returned);
             deck.append_deck(self.gather_hands());
             deck.append_stack_iter(self.stack_iter());
-
-            return PlayOrNext::NextGame(Game::new(
-                players,
-                points,
-                self.consume().initial().next(deck),
-            ));
+            let initial = self.into().into().next(deck);
+            return PlayOrNext::NextGame(Game::new(players, points, initial));
         };
 
         info!("{taker} for color {trump_color}, we give him {card_returned}");
-        let mut state = self.consume();
+        let mut state = self.into();
         state.hand_mut(taker).take(card_returned);
 
         for position in order {
@@ -177,15 +165,11 @@ impl Game<Bidding> {
                 state.complete_hand(position, 3);
             }
         }
+
         PlayOrNext::PlayGame(Game::new(
             players,
             points,
-            Box::new(Playing::new(
-                taker,
-                state.hands,
-                trump_color,
-                state.initial(),
-            )),
+            Playing::new(taker, state.hands, trump_color, state.into()),
         ))
     }
 }

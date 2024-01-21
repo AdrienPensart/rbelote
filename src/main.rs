@@ -36,6 +36,7 @@ pub mod playing;
 pub mod points;
 pub mod position;
 pub mod stack;
+pub mod state;
 pub mod team;
 pub mod turn;
 
@@ -70,6 +71,10 @@ struct Opts {
     #[arg(short = 't', long = "test", default_value_t = false)]
     test: bool,
 
+    /// Tracing ?
+    #[arg(long = "trace", default_value_t = false)]
+    tracing: bool,
+
     /// Concurrency in test mode, default is number of cpu on this machine
     #[arg(short = 'c', long = "concurrency", default_value_t = thread::available_parallelism().unwrap())]
     concurrency: NonZeroUsize,
@@ -77,8 +82,10 @@ struct Opts {
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     color_eyre::install()?;
-    tracing_subscriber::fmt::init();
     let opts = Opts::parse();
+    if opts.tracing {
+        tracing_subscriber::fmt::init();
+    }
     if opts.test {
         let mut children = vec![];
         for _ in 0..opts.concurrency.get() {

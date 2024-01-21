@@ -7,13 +7,15 @@ use crate::initial::Initial;
 use crate::order::Order;
 use crate::position::Position;
 use crate::stack::Iter as StackIter;
-use derive_more::Constructor;
+use derive_more::{Constructor, Deref, DerefMut};
 use tracing::info;
 
-#[derive(Constructor)]
+#[derive(Constructor, Deref, DerefMut)]
 pub struct Distribution {
     hands: Hands,
-    initial: Box<Initial>,
+    #[deref]
+    #[deref_mut]
+    initial: Initial,
 }
 
 impl Distribution {
@@ -25,9 +27,6 @@ impl Distribution {
     }
     pub fn hand(&self, position: Position) -> &Hand {
         &self.hands[position]
-    }
-    pub fn next(self, deck: Deck) -> Box<Initial> {
-        self.initial.next(deck)
     }
     pub const fn number(&self) -> u64 {
         self.initial.number()
@@ -46,11 +45,7 @@ impl Game<Distribution> {
         Ok(Game::new(
             self.players(),
             self.points(),
-            Box::new(Bidding::new(
-                card_returned,
-                self.hands,
-                self.consume().initial,
-            )),
+            Bidding::new(card_returned, self.hands, self.into().initial),
         ))
     }
 }
