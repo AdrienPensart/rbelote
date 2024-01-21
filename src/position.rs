@@ -1,10 +1,8 @@
 use crate::team::Team;
-
-use fixed_map::Key;
 use std::fmt;
 
 // KEEP THIS ORDER
-#[derive(Eq, PartialEq, Clone, Copy, Debug, Key, StaticVariantsArray, EnumIter, EnumCount)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, StaticVariantsArray, EnumIter, EnumCount)]
 pub enum Position {
     North,
     East,

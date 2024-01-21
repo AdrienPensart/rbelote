@@ -5,31 +5,28 @@ use crate::hands::Hands;
 use crate::order::Order;
 use crate::players::Players;
 use crate::points::Points;
-use crate::stack::{Iter as StackIter, Stack};
+use crate::stack::Iter as StackIter;
+use derive_new::new;
 use tracing::info;
 
+#[derive(new)]
 pub struct Initial {
-    number: u64,
     order: Order,
+    #[new(default)]
+    number: u64,
+    #[new(default)]
     stack_iter: StackIter,
+    #[new(default)]
     litige: u64,
 }
 
 impl Initial {
-    pub fn new(order: Order) -> Self {
-        Self {
-            order,
-            number: 0,
-            stack_iter: Box::new(Stack::default().into_iter()),
-            litige: 0,
-        }
-    }
     #[must_use]
     pub fn next(mut self: Box<Self>, mut deck: Deck) -> Box<Self> {
         self.order.rotate();
         self.number += 1;
         deck.cut();
-        self.stack_iter = Box::new(deck.into_iter());
+        self.stack_iter = StackIter::from_deck(deck);
         self
     }
     pub fn add_litige(&mut self, litige: u64) {

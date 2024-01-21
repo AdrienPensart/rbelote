@@ -1,7 +1,6 @@
-use fixed_map::Key;
 use std::fmt;
 
-#[derive(Eq, PartialEq, Clone, Copy, Debug, Key, EnumIter)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, EnumIter)]
 pub enum Team {
     NorthSouth,
     WestEast,

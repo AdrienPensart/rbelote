@@ -1,11 +1,33 @@
 use crate::card::{Card, Color, Value};
 use crate::constants::{MAX_CARDS, RETURNED_CARD};
-use derive_more::{Index, IntoIterator};
+use crate::deck::Deck;
+use derive_more::{Deref, DerefMut, Index, IntoIterator};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use std::fmt;
 
-pub type Iter = Box<dyn Iterator<Item = Card>>;
+#[derive(Deref, DerefMut)]
+pub struct Iter(Box<dyn Iterator<Item = Card>>);
+
+impl Iter {
+    pub fn from_deck(deck: Deck) -> Self {
+        Self(Box::new(deck.into_iter()))
+    }
+}
+
+impl Iterator for Iter {
+    type Item = Card;
+
+    fn next(&mut self) -> Option<Card> {
+        self.0.next()
+    }
+}
+
+impl Default for Iter {
+    fn default() -> Self {
+        Self(Box::new(Stack::default().into_iter()))
+    }
+}
 
 #[derive(Clone, Copy, Debug, Index, IntoIterator)]
 pub struct Stack([Card; MAX_CARDS]);
