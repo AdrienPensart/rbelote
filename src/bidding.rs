@@ -1,8 +1,9 @@
 use crate::card::{Card, Color};
 use crate::contract::Contract;
-use crate::deck::Deck;
+use crate::errors::BeloteErrorKind;
 use crate::game::Game;
-use crate::hands::{Hand, Hands};
+use crate::hand::Hand;
+use crate::hands::Hands;
 use crate::initial::Initial;
 use crate::playing::Playing;
 use crate::position::Position;
@@ -29,7 +30,7 @@ pub struct Bidding {
 }
 
 impl Bidding {
-    pub fn into(self) -> Initial {
+    pub const fn into(self) -> Initial {
         self.initial
     }
 
@@ -41,20 +42,21 @@ impl Bidding {
         &mut self.hands[position]
     }
 
-    pub fn gather_hands(&self) -> Deck {
-        self.hands.gather()
-    }
-
-    pub fn complete_hand(&mut self, position: Position, count: usize) {
-        let cards = self.stack_iter().take(count).collect::<Vec<Card>>();
-        for card in cards {
-            self.hand_mut(position).take(card);
+    pub fn complete_hand(
+        &mut self,
+        position: Position,
+        count: usize,
+    ) -> Result<(), BeloteErrorKind> {
+        for _ in 0..count {
+            let card = self.stack_mut().give_card()?;
+            self.hand_mut(position).take(card)?;
         }
+        Ok(())
     }
 }
 
 impl Game<Bidding> {
-    pub fn playing_game_or_redistribute(mut self) -> PlayOrNext {
+    pub fn playing_game_or_redistribute(mut self) -> Result<PlayOrNext, BeloteErrorKind> {
         let order = self.order();
         let players = self.players();
         let points = self.points();
@@ -81,7 +83,7 @@ impl Game<Bidding> {
                         }
                         Ok(None) => {
                             info!("Interrupted.");
-                            return PlayOrNext::Interrupted;
+                            return Ok(PlayOrNext::Interrupted);
                         }
                         Err(_) => {
                             info!("Error with questionnaire, try again.");
@@ -97,7 +99,7 @@ impl Game<Bidding> {
             }
             info!("{position} did not take at first glance");
         }
-        println!("randomization: {}", players.randomization());
+        info!("randomization: {}", players.randomization());
         if taker.is_none() {
             info!("Second bidding turn");
             'second_turn: for position in order {
@@ -129,7 +131,7 @@ impl Game<Bidding> {
                             }
                             Ok(None) => {
                                 info!("Interrupted.");
-                                return PlayOrNext::Interrupted;
+                                return Ok(PlayOrNext::Interrupted);
                             }
                             Err(_) => {
                                 info!("Error with questionnaire, try again.");
@@ -145,32 +147,35 @@ impl Game<Bidding> {
             }
         }
         let Some(taker) = taker else {
-            let mut deck = Deck::default();
-            deck.append_card(&card_returned);
-            deck.append_deck(self.gather_hands());
-            deck.append_stack_iter(self.stack_iter());
-            let initial = self.into().into().next(deck);
-            return PlayOrNext::NextGame(Game::new(players, points, initial));
+            self.stack_mut().append_card(card_returned)?;
+            for position in order {
+                for card in self.hand_mut(position).into_iter().flatten() {
+                    self.stack_mut().append_card(card)?;
+                }
+            }
+            // deck.append_stack(self.stack_mut());
+            let initial = self.into().into().next();
+            return Ok(PlayOrNext::NextGame(Game::new(players, points, initial)));
         };
 
         info!("{taker} for color {trump_color}, we give him {card_returned}");
         let mut bidding = self.into();
-        bidding.hand_mut(taker).take(card_returned);
+        bidding.hand_mut(taker).take(card_returned)?;
 
         for position in order {
             if position == taker {
                 info!("Giving {position} 2 more cards because taker");
-                bidding.complete_hand(position, 2);
+                bidding.complete_hand(position, 2)?;
             } else {
                 info!("Giving {position} 3 more cards because others");
-                bidding.complete_hand(position, 3);
+                bidding.complete_hand(position, 3)?;
             }
         }
 
-        PlayOrNext::PlayGame(Game::new(
+        Ok(PlayOrNext::PlayGame(Game::new(
             players,
             points,
             Playing::new(taker, bidding.hands, trump_color, bidding.into()),
-        ))
+        )))
     }
 }

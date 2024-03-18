@@ -1,7 +1,7 @@
 use crate::card::{Card, Color};
 use crate::constants::MAX_CARDS_BY_PLAYER;
 use crate::errors::BeloteErrorKind;
-use crate::hands::Hand;
+use crate::hand::Hand;
 use crate::position::Position;
 use crate::turn::Turn;
 use std::fmt;
@@ -32,10 +32,10 @@ impl Player {
         turn: &Turn,
         trump_color: Color,
     ) -> Result<Vec<Card>, BeloteErrorKind> {
-        if hand.count() != MAX_CARDS_BY_PLAYER as u64 - turn.number() + 1 {
+        if hand.len() as u64 != MAX_CARDS_BY_PLAYER as u64 - turn.number() + 1 {
             return Err(BeloteErrorKind::InvalidCase(format!(
                 "Bad number of cards for player {position} : {} it should be {}",
-                hand.count(),
+                hand.len(),
                 MAX_CARDS_BY_PLAYER as u64 - turn.number() + 1
             )));
         }
@@ -46,7 +46,7 @@ impl Player {
             turn.master_card()
         );
         let choices = match (turn.called_color(), turn.master_card()) {
-            (None, None) => hand.into_iter().collect(),
+            (None, None) => hand.into_iter().flatten().collect(),
             (Some(called_color), Some(master_card)) => {
                 let mut trumps = Vec::new();
                 let mut trumps_less = Vec::new();
@@ -54,7 +54,7 @@ impl Player {
                 let mut other_colors = Vec::new();
                 let mut same_colors = Vec::new();
 
-                for card in hand.into_iter() {
+                for card in hand.into_iter().flatten() {
                     if card.color() == trump_color {
                         trumps.push(card);
                         if card.power(trump_color) > master_card.power(trump_color) {

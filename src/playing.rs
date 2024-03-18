@@ -1,12 +1,11 @@
 use crate::card::Card;
 use crate::card::Color;
 use crate::constants::{MAX_CARDS_BY_PLAYER, MAX_PLAYERS};
-use crate::deck::Deck;
 use crate::errors::BeloteErrorKind;
 use crate::game::Game;
-use crate::hands::{Hand, Hands};
+use crate::hand::Hand;
+use crate::hands::Hands;
 use crate::initial::Initial;
-use crate::order::Order;
 use crate::position::Position;
 use crate::team::Team;
 use crate::turn::Turn;
@@ -27,37 +26,27 @@ pub struct Playing {
 }
 
 impl Playing {
-    pub fn into(self) -> Initial {
+    pub const fn into(self) -> Initial {
         self.initial
     }
-
     pub fn hand(&self, position: Position) -> &Hand {
         &self.hands[position]
+    }
+    pub fn hand_mut(&mut self, position: Position) -> &mut Hand {
+        &mut self.hands[position]
     }
     pub fn add_litige(&mut self, litige: u64) {
         self.initial.add_litige(litige);
     }
-
     pub fn reset_litige(&mut self) -> u64 {
         self.initial.reset_litige()
     }
-
     pub const fn taker(&self) -> Position {
         self.taker
     }
-
-    pub const fn order(&self) -> Order {
-        self.initial.order()
-    }
-
     pub const fn hands(&self) -> Hands {
         self.hands
     }
-
-    pub fn hand_mut(&mut self, position: Position) -> &mut Hand {
-        &mut self.hands[position]
-    }
-
     pub const fn trump_color(&self) -> Color {
         self.trump_color
     }
@@ -79,7 +68,6 @@ impl Game<Playing> {
         let mut current_position = self.order()[0];
         let mut attack_points: u64 = 0;
         let mut defense_points: u64 = 0;
-        let mut deck = Deck::default();
 
         for turn_number in 0..MAX_CARDS_BY_PLAYER {
             let mut turn = Turn::new(turn_number as u64 + 1, self.order());
@@ -146,11 +134,11 @@ impl Game<Playing> {
                     }
                 };
 
-                if !self.hand_mut(current_position).give(&chosen_card) {
+                let Some(_) = self.hand_mut(current_position).give(&chosen_card) else {
                     return Err(BeloteErrorKind::InvalidCase(
                         "cannot give chosen card".to_string(),
                     ));
-                }
+                };
                 info!(
                     "Hand of {current_position} after playing : {}",
                     self.hand(current_position)
@@ -178,13 +166,13 @@ impl Game<Playing> {
                 } else {
                     defense_points += points;
                 }
-                deck.append_card(&card);
+                self.stack_mut().append_card(card)?;
             }
 
-            if deck.len() != (turn_number + 1) * MAX_PLAYERS {
+            if self.stack().len() != (turn_number + 1) * MAX_PLAYERS {
                 return Err(BeloteErrorKind::InvalidCase(format!(
                     "bad deck length {} it should be {}",
-                    deck.len(),
+                    self.stack().len(),
                     turn_number * MAX_PLAYERS
                 )));
             };
@@ -233,7 +221,7 @@ impl Game<Playing> {
         self.add_points(self.taker().team().other(), final_defense_points);
         let players = self.players();
         let points = self.points();
-        let initial = self.into().into().next(deck);
+        let initial = self.into().into().next();
         Ok(NextGameOrInterrupt::NextGame(Game::new(
             players, points, initial,
         )))

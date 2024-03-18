@@ -18,14 +18,15 @@ use std::thread;
 use strum::IntoEnumIterator;
 use tracing::{error, info};
 
+pub mod belote;
 pub mod bidding;
 pub mod card;
 pub mod constants;
 pub mod contract;
-pub mod deck;
 pub mod distribution;
 pub mod errors;
 pub mod game;
+pub mod hand;
 pub mod hands;
 pub mod helpers;
 pub mod initial;
@@ -36,7 +37,6 @@ pub mod playing;
 pub mod points;
 pub mod position;
 pub mod stack;
-pub mod state;
 pub mod team;
 pub mod turn;
 
@@ -115,9 +115,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
         let mut game = Game::default(players, order);
         'current_game: for _ in 0..opts.games {
-            let distribution = game.distribute();
+            let distribution = game.distribute()?;
             let bidding = distribution.bidding()?;
-            game = match bidding.playing_game_or_redistribute() {
+            game = match bidding.playing_game_or_redistribute()? {
                 PlayOrNext::NextGame(next_game) => next_game,
                 PlayOrNext::PlayGame(in_game) => match in_game.play()? {
                     NextGameOrInterrupt::NextGame(next_game) => next_game,

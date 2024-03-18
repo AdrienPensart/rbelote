@@ -1,11 +1,11 @@
-use crate::deck::Deck;
 use crate::distribution::Distribution;
+use crate::errors::BeloteErrorKind;
 use crate::game::Game;
 use crate::hands::Hands;
 use crate::order::Order;
 use crate::players::Players;
 use crate::points::Points;
-use crate::stack::Iter as StackIter;
+use crate::stack::Stack;
 use derive_new::new;
 use tracing::info;
 
@@ -14,19 +14,18 @@ pub struct Initial {
     order: Order,
     #[new(default)]
     number: u64,
-    #[new(default)]
-    stack_iter: StackIter,
+    #[new(value = "Stack::random()")]
+    stack: Stack,
     #[new(default)]
     litige: u64,
 }
 
 impl Initial {
     #[must_use]
-    pub fn next(mut self, mut deck: Deck) -> Self {
-        deck.cut();
+    pub fn next(mut self) -> Self {
         self.order.rotate();
         self.number += 1;
-        self.stack_iter = StackIter::from_deck(deck);
+        self.stack.cut();
         self
     }
 
@@ -44,8 +43,11 @@ impl Initial {
     pub const fn number(&self) -> u64 {
         self.number
     }
-    pub fn stack_iter(&mut self) -> &mut StackIter {
-        &mut self.stack_iter
+    pub const fn stack(&self) -> &Stack {
+        &self.stack
+    }
+    pub fn stack_mut(&mut self) -> &mut Stack {
+        &mut self.stack
     }
 }
 
@@ -54,23 +56,23 @@ impl Game<Initial> {
         Self::new(players, Points::default(), Initial::new(order))
     }
 
-    pub fn distribute(mut self) -> Game<Distribution> {
+    pub fn distribute(mut self) -> Result<Game<Distribution>, BeloteErrorKind> {
         let mut hands = Hands::default();
         for position in self.order() {
-            for card in self.stack_iter().take(3) {
-                hands[position].take(card);
+            for _ in 0..3 {
+                hands[position].take(self.stack.give_card()?)?;
             }
         }
         for position in self.order() {
-            for card in self.stack_iter().take(2) {
-                hands[position].take(card);
+            for _ in 0..2 {
+                hands[position].take(self.stack.give_card()?)?;
             }
             info!("{position} : {}", hands[position]);
         }
-        Game::new(
+        Ok(Game::new(
             self.players(),
             self.points(),
             Distribution::new(hands, self.into()),
-        )
+        ))
     }
 }

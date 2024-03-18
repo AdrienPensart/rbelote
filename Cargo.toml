@@ -13,13 +13,14 @@ itertools = "0.12"
 strum = {git = "https://github.com/Peternator7/strum", rev = "cb8b753ee0d9d5d8231b6cf392f116cea86f1fac" }
 strum_macros = {git = "https://github.com/Peternator7/strum", rev = "cb8b753ee0d9d5d8231b6cf392f116cea86f1fac" }
 thiserror = "1.0"
-inquire = "0.6"
+inquire = "0.7"
 clap = { version = "4.0", features = ["derive"] }
-# fixed-map = "0.9.3"
 derive_more = { version = "1.0.0-beta.6", features = ["full"] }
 color-eyre = "0.6.2"
 colored = "2.1.0"
 derive-new = "0.6"
+typestate = "0.8.0"
+tinyvec = "1.6.0"
 
 [lints.rust]
 unsafe_code = "forbid"

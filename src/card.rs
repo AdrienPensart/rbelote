@@ -1,31 +1,45 @@
 use crate::errors::BeloteErrorKind;
 use colored::Colorize;
+use core::fmt::Display;
 use std::fmt;
+// use std::iter::FromIterator;
 use std::str::FromStr;
 use strum_macros::Display;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Display, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Hash)]
 pub enum Color {
-    #[strum(serialize = "♥")]
     Heart,
-    #[strum(serialize = "♠")]
     Spade,
-    #[strum(serialize = "♦")]
     Diamond,
-    #[strum(serialize = "♣")]
     Club,
+}
+
+impl Display for Color {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let repr = match self {
+            Self::Club => "♣".blue(),
+            Self::Diamond => "♦".red(),
+            Self::Heart => "♥".red(),
+            Self::Spade => "♠".blue(),
+        };
+        write!(f, "{repr}")
+    }
 }
 
 impl FromStr for Color {
     type Err = BeloteErrorKind;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "♠" => Ok(Self::Spade),
-            "♦" => Ok(Self::Diamond),
-            "♣" => Ok(Self::Club),
-            "♥" => Ok(Self::Heart),
-            _ => Err(BeloteErrorKind::InvalidColor(s.to_string())),
+        if s.blue() == "♠".blue() {
+            Ok(Self::Spade)
+        } else if s.red() == "♦".red() {
+            Ok(Self::Diamond)
+        } else if s.blue() == "♣".blue() {
+            Ok(Self::Club)
+        } else if s.red() == "♥".red() {
+            Ok(Self::Heart)
+        } else {
+            Err(BeloteErrorKind::InvalidColor(s.to_string()))
         }
     }
 }
@@ -76,20 +90,13 @@ pub struct Card {
 
 impl fmt::Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.color {
-            Color::Club | Color::Spade => {
-                write!(f, "{}{}", self.color.to_string().blue(), self.value)
-            }
-            Color::Diamond | Color::Heart => {
-                write!(f, "{}{}", self.color.to_string().red(), self.value)
-            }
-        }
+        write!(f, "{} {}", self.color, self.value)
     }
 }
 
 impl Card {
-    pub const fn new(color: Color, value: Value) -> Self {
-        Self { color, value }
+    pub const fn new(color: Color, value: Value) -> Option<Self> {
+        Some(Self { color, value })
     }
     pub fn points(&self, trump_color: Color) -> u64 {
         match self.value {
@@ -159,21 +166,14 @@ impl FromStr for Card {
     type Err = BeloteErrorKind;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let color = match s.chars().nth(0) {
-            Some(maybe_color_char) => {
-                match Color::from_str(maybe_color_char.to_string().as_str()) {
-                    Ok(color) => color,
-                    _ => return Err(BeloteErrorKind::InvalidCard(s.to_string())),
-                }
-            }
-            _ => return Err(BeloteErrorKind::InvalidCard(s.to_string())),
-        };
-
-        let maybe_value = s.chars().skip(1).collect::<String>();
-        let Ok(value) = Value::from_str(maybe_value.as_str()) else {
-            return Err(BeloteErrorKind::InvalidCard(s.to_string()));
-        };
-        Ok(Self { color, value })
+        if let Some((maybe_color, maybe_value)) = s.chars().collect::<Vec<char>>().split_first() {
+            let color = Color::from_str(maybe_color.to_string().as_str())?;
+            let value_str = maybe_value.iter().collect::<String>();
+            let value = Value::from_str(value_str.as_str())?;
+            Ok(Self { color, value })
+        } else {
+            Err(BeloteErrorKind::InvalidCard(s.to_string()))
+        }
     }
 }
 

@@ -1,6 +1,5 @@
 use crate::players::Players;
 use crate::points::Points;
-// use crate::state::State;
 use crate::team::Team;
 
 use derive_more::{Constructor, Deref, DerefMut};
