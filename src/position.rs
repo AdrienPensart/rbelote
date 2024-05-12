@@ -2,7 +2,7 @@ use crate::team::Team;
 use std::fmt;
 
 // KEEP THIS ORDER
-#[derive(Eq, PartialEq, Clone, Copy, Debug, StaticVariantsArray, EnumIter, EnumCount)]
+#[derive(Eq, PartialEq, Clone, Copy, Debug, VariantArray, EnumIter, EnumCount)]
 pub enum Position {
     North,
     East,

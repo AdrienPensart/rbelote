@@ -3,7 +3,7 @@ use crate::position::Position;
 use derive_more::{Index, IntoIterator};
 use rand::{thread_rng, Rng};
 use std::fmt;
-use strum::{EnumCount, StaticVariantsArray};
+use strum::{EnumCount, VariantArray};
 
 #[derive(Debug, IntoIterator, Index, Clone, Copy)]
 pub struct Order([Position; constants::MAX_PLAYERS]);
@@ -38,7 +38,7 @@ impl Order {
             Position::North,
             Position::North,
         ];
-        variants.copy_from_slice(Position::ALL_VARIANTS);
+        variants.copy_from_slice(Position::VARIANTS);
         let random_index = rng.gen_range(0..=Position::COUNT);
         variants.rotate_left(random_index);
         Self(variants)

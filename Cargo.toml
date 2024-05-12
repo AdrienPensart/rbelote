@@ -10,8 +10,6 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 rand = "0.8"
 itertools = "0.12"
-strum = {git = "https://github.com/Peternator7/strum", rev = "cb8b753ee0d9d5d8231b6cf392f116cea86f1fac" }
-strum_macros = {git = "https://github.com/Peternator7/strum", rev = "cb8b753ee0d9d5d8231b6cf392f116cea86f1fac" }
 thiserror = "1.0"
 inquire = "0.7"
 clap = { version = "4.0", features = ["derive"] }
@@ -21,6 +19,8 @@ colored = "2.1.0"
 derive-new = "0.6"
 typestate = "0.8.0"
 tinyvec = "1.6.0"
+strum = "0.26.2"
+strum_macros = "0.26.2"
 
 [lints.rust]
 unsafe_code = "forbid"
