@@ -9,7 +9,7 @@ edition = "2018"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 rand = "0.8"
-itertools = "0.12"
+itertools = "0.13"
 thiserror = "1.0"
 inquire = "0.7"
 clap = { version = "4.0", features = ["derive"] }
@@ -27,8 +27,8 @@ unsafe_code = "forbid"
 
 [lints.clippy]
 enum_glob_use = "deny"
-pedantic = "deny"
-nursery = "deny"
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
 unwrap_used = "deny"
 must_use_candidate = "allow"
 missing_errors_doc = "allow"
