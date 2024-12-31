@@ -4,6 +4,7 @@ use core::fmt::Display;
 use derive_more::Debug;
 use std::fmt;
 use std::str::FromStr;
+use strum_macros::EnumIter;
 
 const PASS: &str = "Pass";
 

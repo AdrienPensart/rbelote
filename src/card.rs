@@ -4,7 +4,7 @@ use core::fmt::Display;
 use std::fmt;
 // use std::iter::FromIterator;
 use std::str::FromStr;
-use strum_macros::Display;
+use strum_macros::{Display, EnumIter};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, EnumIter, Hash)]
 pub enum Color {

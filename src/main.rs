@@ -1,7 +1,3 @@
-extern crate itertools;
-extern crate rand;
-#[macro_use]
-extern crate strum_macros;
 use crate::bidding::PlayOrNext;
 use crate::game::Game;
 use crate::order::Order;
