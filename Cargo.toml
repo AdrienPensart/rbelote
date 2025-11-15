@@ -8,19 +8,19 @@ edition = "2021"
 [dependencies]
 tracing = "0.1"
 tracing-subscriber = "0.3"
-rand = "0.8"
+rand = "0.9.2"
 itertools = "0.14"
 thiserror = "2.0"
-inquire = "0.7"
+inquire = "0.9.1"
 clap = { version = "4.0", features = ["derive"] }
-derive_more = { version = "1.0.0-beta.6", features = ["full"] }
+derive_more = { version = "2.0.1", features = ["full"] }
 color-eyre = "0.6.2"
-colored = "2.1.0"
+colored = "3.0.0"
 derive-new = "0.7"
 typestate = "0.8.0"
 tinyvec = "1.6.0"
-strum = "0.26.2"
-strum_macros = "0.26.2"
+strum = "0.27.2"
+strum_macros = "0.27.2"
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -32,3 +32,8 @@ nursery = { level = "deny", priority = -1 }
 unwrap_used = "deny"
 must_use_candidate = "allow"
 missing_errors_doc = "allow"
+indexing_slicing = "deny"
+fallible_impl_from = "deny"
+wildcard_enum_match_arm = "deny"
+unneeded_field_pattern = "deny"
+fn_params_excessive_bools = "deny"

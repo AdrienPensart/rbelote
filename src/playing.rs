@@ -11,7 +11,7 @@ use crate::team::Team;
 use crate::turn::Turn;
 use derive_more::{Constructor, Deref, DerefMut};
 use inquire::Select;
-use rand::seq::IteratorRandom;
+use rand::{rng, seq::IteratorRandom};
 use std::str::FromStr;
 use tracing::{info, warn};
 
@@ -35,10 +35,10 @@ impl Playing {
     pub fn hand_mut(&mut self, position: Position) -> &mut Hand {
         &mut self.hands[position]
     }
-    pub fn add_litige(&mut self, litige: u64) {
+    pub const fn add_litige(&mut self, litige: u64) {
         self.initial.add_litige(litige);
     }
-    pub fn reset_litige(&mut self) -> u64 {
+    pub const fn reset_litige(&mut self) -> u64 {
         self.initial.reset_litige()
     }
     pub const fn taker(&self) -> Position {
@@ -96,7 +96,7 @@ impl Game<Playing> {
                 );
 
                 let chosen_card = if self.players()[current_position].random() {
-                    let mut rng = rand::thread_rng();
+                    let mut rng = rng();
                     let Some(random_card): Option<Card> = choices.iter().choose(&mut rng).copied()
                     else {
                         return Err(BeloteErrorKind::InvalidCase(
@@ -128,7 +128,6 @@ impl Game<Playing> {
                             }
                             Err(_) => {
                                 info!("Error with questionnaire, try again.");
-                                continue;
                             }
                         }
                     }
@@ -175,7 +174,7 @@ impl Game<Playing> {
                     self.stack().len(),
                     turn_number * MAX_PLAYERS
                 )));
-            };
+            }
             info!("New attack points = {attack_points}");
             info!("New defense points = {defense_points}");
         }

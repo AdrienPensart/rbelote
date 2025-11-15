@@ -2,7 +2,6 @@ use crate::errors::BeloteErrorKind;
 use colored::Colorize;
 use core::fmt::Display;
 use std::fmt;
-// use std::iter::FromIterator;
 use std::str::FromStr;
 use strum_macros::{Display, EnumIter};
 

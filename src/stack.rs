@@ -1,9 +1,9 @@
 use crate::card::{Card, Color, Value};
 use crate::constants::MAX_CARDS;
 use crate::errors::{BeloteErrorKind, ErrOnSome};
-use derive_more::{Index, IntoIterator};
+use derive_more::Index;
 use rand::seq::SliceRandom;
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::fmt;
 use tinyvec::ArrayVec;
 
@@ -57,15 +57,13 @@ impl Stack {
         Self(cards)
     }
     pub fn random() -> Self {
-        let mut rng = thread_rng();
         let mut new_stack = Self::new();
-        new_stack.0.shuffle(&mut rng);
+        new_stack.0.shuffle(&mut rng());
         new_stack
     }
     pub fn cut(&mut self) {
-        let mut rng = thread_rng();
         let len = self.0.len();
-        self.0.rotate_left(rng.gen_range(0..len));
+        self.0.rotate_left(rng().random_range(0..len));
     }
     pub fn append_card(&mut self, card: Card) -> Result<(), BeloteErrorKind> {
         self.0.try_push(Some(card)).err_on_some(|| {

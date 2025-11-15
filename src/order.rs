@@ -1,7 +1,7 @@
 use crate::constants;
 use crate::position::Position;
 use derive_more::{Index, IntoIterator};
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use std::fmt;
 use strum::{EnumCount, VariantArray};
 
@@ -31,7 +31,7 @@ impl fmt::Display for Order {
 
 impl Order {
     pub fn random() -> Self {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let mut variants = [
             Position::North,
             Position::North,
@@ -39,7 +39,7 @@ impl Order {
             Position::North,
         ];
         variants.copy_from_slice(Position::VARIANTS);
-        let random_index = rng.gen_range(0..=Position::COUNT);
+        let random_index = rng.random_range(0..=Position::COUNT);
         variants.rotate_left(random_index);
         Self(variants)
     }

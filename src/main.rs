@@ -153,7 +153,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                     Err(_) => {
                         error!("Error with questionnaire, try again.");
                     }
-                };
+                }
             }
         }
         info!("GAME ENDED");

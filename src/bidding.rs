@@ -9,7 +9,7 @@ use crate::playing::Playing;
 use crate::position::Position;
 use derive_more::{Constructor, Deref, DerefMut};
 use inquire::{Confirm, Select};
-use rand::{seq::IteratorRandom, thread_rng, Rng};
+use rand::{rng, seq::IteratorRandom, Rng};
 use std::str::FromStr;
 use strum::IntoEnumIterator;
 use tracing::info;
@@ -60,14 +60,13 @@ impl Game<Bidding> {
         let order = self.order();
         let players = self.players();
         let points = self.points();
-        let mut rng = thread_rng();
         let card_returned = self.card_returned;
         let mut trump_color = card_returned.color();
         let mut taker: Option<Position> = None;
         info!("First bidding turn");
         for position in order {
             let take = if players[position].random() {
-                rng.gen_bool(players.randomization())
+                rng().random_bool(players.randomization())
             } else {
                 'questionnaire: loop {
                     info!(
@@ -88,7 +87,7 @@ impl Game<Bidding> {
                         Err(_) => {
                             info!("Error with questionnaire, try again.");
                         }
-                    };
+                    }
                 }
             };
 
@@ -104,9 +103,9 @@ impl Game<Bidding> {
             info!("Second bidding turn");
             'second_turn: for position in order {
                 let chosen_color = if players[position].random() {
-                    if rng.gen_bool(players.randomization()) {
+                    if rng().random_bool(players.randomization()) {
                         Contract::iter()
-                            .choose(&mut rng)
+                            .choose(&mut rng())
                             .and_then(|contract| contract.color())
                     } else {
                         None
@@ -136,7 +135,7 @@ impl Game<Bidding> {
                             Err(_) => {
                                 info!("Error with questionnaire, try again.");
                             }
-                        };
+                        }
                     }
                 };
                 if let Some(chosen_color) = chosen_color {

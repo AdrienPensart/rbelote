@@ -29,10 +29,10 @@ impl Initial {
         self
     }
 
-    pub fn add_litige(&mut self, litige: u64) {
+    pub const fn add_litige(&mut self, litige: u64) {
         self.litige += litige;
     }
-    pub fn reset_litige(&mut self) -> u64 {
+    pub const fn reset_litige(&mut self) -> u64 {
         let old_litige = self.litige;
         self.litige = 0;
         old_litige
@@ -46,7 +46,7 @@ impl Initial {
     pub const fn stack(&self) -> &Stack {
         &self.stack
     }
-    pub fn stack_mut(&mut self) -> &mut Stack {
+    pub const fn stack_mut(&mut self) -> &mut Stack {
         &mut self.stack
     }
 }
