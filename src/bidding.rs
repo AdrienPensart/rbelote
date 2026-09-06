@@ -1,4 +1,4 @@
-use crate::card::{Card, Color};
+use crate::card::Card;
 use crate::contract::Contract;
 use crate::errors::BeloteErrorKind;
 use crate::game::Game;
@@ -10,7 +10,6 @@ use crate::position::Position;
 use derive_more::{Constructor, Deref, DerefMut};
 use inquire::{Confirm, Select};
 use rand::{rng, seq::IteratorRandom, RngExt};
-use std::str::FromStr;
 use strum::IntoEnumIterator;
 use tracing::info;
 
@@ -112,22 +111,19 @@ impl Game<Bidding> {
                     }
                 } else {
                     'choose_contract: loop {
-                        let card_returned_color = card_returned.color();
-                        let contracts: Vec<String> = Contract::iter()
-                            .filter(|c| c.to_string() != card_returned_color.to_string())
-                            .map(|c| c.to_string())
+                        // second turn: any color is biddable except the returned card's one
+                        let contracts: Vec<Contract> = Contract::iter()
+                            .filter(|c| c.color() != Some(card_returned.color()))
                             .collect();
                         info!("Nobody took: {card_returned}, please choose a color for trumps");
                         let answer =
                             Select::new("Which color do you choose ? (ESC to cancel)", contracts)
                                 .prompt_skippable();
                         match answer {
-                            Ok(Some(maybe_chosen_color)) => {
-                                if let Ok(chosen_color) = Color::from_str(&maybe_chosen_color) {
-                                    break 'choose_contract Some(chosen_color);
-                                }
-                                continue 'second_turn;
-                            }
+                            Ok(Some(chosen_contract)) => match chosen_contract.color() {
+                                Some(chosen_color) => break 'choose_contract Some(chosen_color),
+                                None => continue 'second_turn,
+                            },
                             Ok(None) => {
                                 info!("Interrupted.");
                                 return Ok(PlayOrNext::Interrupted);

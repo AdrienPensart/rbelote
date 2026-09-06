@@ -25,20 +25,34 @@ impl Display for Color {
     }
 }
 
+/// `Display` renders colors through `colored`, which wraps them in ANSI escapes
+/// whenever it detects a terminal. Drop those so parsing stays the inverse of
+/// displaying, whether or not styling was applied.
+fn strip_ansi(s: &str) -> String {
+    let mut plain = String::with_capacity(s.len());
+    let mut in_escape = false;
+    for c in s.chars() {
+        if in_escape {
+            in_escape = c != 'm';
+        } else if c == '\u{1b}' {
+            in_escape = true;
+        } else {
+            plain.push(c);
+        }
+    }
+    plain
+}
+
 impl FromStr for Color {
     type Err = BeloteErrorKind;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.blue() == "♠".blue() {
-            Ok(Self::Spade)
-        } else if s.red() == "♦".red() {
-            Ok(Self::Diamond)
-        } else if s.blue() == "♣".blue() {
-            Ok(Self::Club)
-        } else if s.red() == "♥".red() {
-            Ok(Self::Heart)
-        } else {
-            Err(BeloteErrorKind::InvalidColor(s.to_string()))
+        match strip_ansi(s).trim() {
+            "♠" => Ok(Self::Spade),
+            "♦" => Ok(Self::Diamond),
+            "♣" => Ok(Self::Club),
+            "♥" => Ok(Self::Heart),
+            _ => Err(BeloteErrorKind::InvalidColor(s.to_string())),
         }
     }
 }
@@ -165,14 +179,14 @@ impl FromStr for Card {
     type Err = BeloteErrorKind;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Some((maybe_color, maybe_value)) = s.chars().collect::<Vec<char>>().split_first() {
-            let color = Color::from_str(maybe_color.to_string().as_str())?;
-            let value_str = maybe_value.iter().collect::<String>();
-            let value = Value::from_str(value_str.as_str())?;
-            Ok(Self { color, value })
-        } else {
-            Err(BeloteErrorKind::InvalidCard(s.to_string()))
-        }
+        let plain = strip_ansi(s);
+        let mut chars = plain.trim().chars();
+        let Some(maybe_color) = chars.next() else {
+            return Err(BeloteErrorKind::InvalidCard(s.to_string()));
+        };
+        let color = Color::from_str(maybe_color.to_string().as_str())?;
+        let value = Value::from_str(chars.as_str().trim())?;
+        Ok(Self { color, value })
     }
 }
 
@@ -209,4 +223,28 @@ fn card_tests() {
         value: Value::Jack,
     };
     assert!(heart_j.master(heart_10, Color::Heart));
+}
+
+#[test]
+fn card_display_from_str_roundtrip() {
+    use strum::IntoEnumIterator;
+
+    // Both with and without the ANSI styling `colored` applies on a terminal.
+    for styled in [false, true] {
+        colored::control::set_override(styled);
+        for color in Color::iter() {
+            assert_eq!(Color::from_str(&color.to_string()), Ok(color));
+            for value in Value::iter() {
+                let Some(card) = Card::new(color, value) else {
+                    panic!("cannot build card");
+                };
+                assert_eq!(
+                    Card::from_str(&card.to_string()),
+                    Ok(card),
+                    "roundtrip failed for {card:?} (styled: {styled})"
+                );
+            }
+        }
+    }
+    colored::control::unset_override();
 }

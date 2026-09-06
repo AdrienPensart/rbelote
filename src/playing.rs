@@ -12,7 +12,6 @@ use crate::turn::Turn;
 use derive_more::{Constructor, Deref, DerefMut};
 use inquire::Select;
 use rand::{rng, seq::IteratorRandom};
-use std::str::FromStr;
 use tracing::{info, warn};
 
 #[derive(Constructor, Deref, DerefMut)]
@@ -106,18 +105,15 @@ impl Game<Playing> {
                     random_card
                 } else {
                     loop {
-                        let cards: Vec<String> = choices
-                            .iter()
-                            .map(std::string::ToString::to_string)
-                            .collect();
-                        let page_size = cards.len();
-                        let chosen_card =
-                            Select::new("Which card do you choose ? (ESC to cancel)", cards)
-                                .with_page_size(page_size)
-                                .prompt_skippable();
+                        let page_size = choices.len();
+                        let chosen_card = Select::new(
+                            "Which card do you choose ? (ESC to cancel)",
+                            choices.clone(),
+                        )
+                        .with_page_size(page_size)
+                        .prompt_skippable();
                         match chosen_card {
-                            Ok(Some(maybe_chosen_card)) => {
-                                let chosen_card = Card::from_str(&maybe_chosen_card)?;
+                            Ok(Some(chosen_card)) => {
                                 break chosen_card;
                             }
                             Ok(None) => {
