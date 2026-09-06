@@ -14,7 +14,6 @@ use std::thread;
 use strum::IntoEnumIterator;
 use tracing::{error, info};
 
-pub mod belote;
 pub mod bidding;
 pub mod card;
 pub mod constants;

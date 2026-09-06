@@ -140,7 +140,7 @@ impl Game<Playing> {
                     "Hand of {current_position} after playing : {}",
                     self.hand(current_position)
                 );
-                turn.put(self.trump_color(), current_position, &chosen_card);
+                let _ = turn.put(self.trump_color(), current_position, &chosen_card);
                 if turn.finished() {
                     break;
                 }
@@ -170,7 +170,7 @@ impl Game<Playing> {
                 return Err(BeloteErrorKind::InvalidCase(format!(
                     "bad deck length {} it should be {}",
                     self.stack().len(),
-                    turn_number * MAX_PLAYERS
+                    (turn_number + 1) * MAX_PLAYERS
                 )));
             }
             info!("New attack points = {attack_points}");

@@ -39,7 +39,7 @@ impl Order {
             Position::North,
         ];
         variants.copy_from_slice(Position::VARIANTS);
-        let random_index = rng.random_range(0..=Position::COUNT);
+        let random_index = rng.random_range(0..Position::COUNT);
         variants.rotate_left(random_index);
         Self(variants)
     }
