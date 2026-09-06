@@ -1,6 +1,28 @@
-use crate::player::Player;
-use crate::position::Position;
+use rbelote_core::position::Position;
+use std::fmt;
 use std::ops::Index;
+
+/// Who sits at a seat. The engine does not care: it only ever asks the driver
+/// for a decision, and the driver looks here to know who should make it.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Player {
+    random: bool,
+}
+
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "random: {}", self.random)
+    }
+}
+
+impl Player {
+    pub const fn new(random: bool) -> Self {
+        Self { random }
+    }
+    pub const fn random(&self) -> bool {
+        self.random
+    }
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct Players {
@@ -24,6 +46,8 @@ impl Players {
         self.north.random() && self.south.random() && self.east.random() && self.west.random()
     }
 
+    /// How eager a random player is to take, so that a table of four of them
+    /// takes about once per deal.
     pub fn randomization(&self) -> f64 {
         let random_players = f64::from(self.north.random())
             + f64::from(self.east.random())

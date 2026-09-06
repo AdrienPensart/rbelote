@@ -1,5 +1,4 @@
 use crate::errors::BeloteErrorKind;
-use colored::Colorize;
 use core::fmt::Display;
 use std::fmt;
 use std::str::FromStr;
@@ -16,10 +15,10 @@ pub enum Color {
 impl Display for Color {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let repr = match self {
-            Self::Club => "♣".blue(),
-            Self::Diamond => "♦".red(),
-            Self::Heart => "♥".red(),
-            Self::Spade => "♠".blue(),
+            Self::Club => "♣",
+            Self::Diamond => "♦",
+            Self::Heart => "♥",
+            Self::Spade => "♠",
         };
         write!(f, "{repr}")
     }
@@ -230,22 +229,19 @@ fn card_tests() {
 fn card_display_from_str_roundtrip() {
     use strum::IntoEnumIterator;
 
-    // Both with and without the ANSI styling `colored` applies on a terminal.
-    for styled in [false, true] {
-        colored::control::set_override(styled);
-        for color in Color::iter() {
-            assert_eq!(Color::from_str(&color.to_string()), Ok(color));
-            for value in Value::iter() {
-                let Some(card) = Card::new(color, value) else {
-                    panic!("cannot build card");
-                };
-                assert_eq!(
-                    Card::from_str(&card.to_string()),
-                    Ok(card),
-                    "roundtrip failed for {card:?} (styled: {styled})"
-                );
-            }
+    for color in Color::iter() {
+        assert_eq!(Color::from_str(&color.to_string()), Ok(color));
+        for value in Value::iter() {
+            let Some(card) = Card::new(color, value) else {
+                panic!("cannot build card");
+            };
+            assert_eq!(Card::from_str(&card.to_string()), Ok(card), "{card:?}");
         }
     }
-    colored::control::unset_override();
+
+    // a front-end is free to style what it displays: parsing stays tolerant
+    assert_eq!(
+        Card::from_str("\u{1b}[31m♦\u{1b}[0m J"),
+        Card::new(Color::Diamond, Value::Jack).ok_or(BeloteErrorKind::InvalidCard(String::new()))
+    );
 }

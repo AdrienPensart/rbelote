@@ -1,31 +1,26 @@
-[package]
-name = "rbelote"
-default-run = "rbelote"
+[workspace]
+resolver = "2"
+members = ["core", "cli"]
+
+[workspace.package]
 version = "0.2.0"
 authors = ["Adrien Pensart <crunchengine@gmail.com>"]
 edition = "2021"
 
-[dependencies]
+[workspace.dependencies]
+rbelote-core = { path = "core" }
 tracing = "0.1"
-tracing-subscriber = "0.3"
 rand = "0.10"
-itertools = "0.15"
 thiserror = "2.0"
-inquire = "0.9.1"
-clap = { version = "4.0", features = ["derive"] }
 derive_more = { version = "2.0.1", features = ["full"] }
-color-eyre = "0.6.2"
-colored = "3.0.0"
-derive-new = "0.7"
-typestate = "0.8.0"
 tinyvec = "1.6.0"
 strum = "0.28"
 strum_macros = "0.28"
 
-[lints.rust]
+[workspace.lints.rust]
 unsafe_code = "forbid"
 
-[lints.clippy]
+[workspace.lints.clippy]
 enum_glob_use = "deny"
 pedantic = { level = "deny", priority = -1 }
 nursery = { level = "deny", priority = -1 }

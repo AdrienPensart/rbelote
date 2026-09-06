@@ -1,37 +1,32 @@
+//! Which cards and which contracts the rules allow, for a given situation.
+//!
+//! These are the only two places where "what may I do now?" is decided, and
+//! they are pure functions: a front-end uses them to grey out illegal moves,
+//! and an AI uses them as its search space.
+
 use crate::card::{Card, Color};
 use crate::constants::MAX_CARDS_BY_PLAYER;
+use crate::contract::Contract;
 use crate::errors::BeloteErrorKind;
 use crate::hand::Hand;
 use crate::position::Position;
 use crate::turn::Turn;
-use std::fmt;
+use strum::IntoEnumIterator;
 use tracing::info;
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Player {
-    random: bool,
+/// Second bidding turn: any color may be named as trump except the one of the
+/// returned card. `Contract::Pass` is kept, it is how a player declines.
+pub fn biddable_contracts(card_returned: Card) -> impl Iterator<Item = Contract> {
+    Contract::iter().filter(move |contract| contract.color() != Some(card_returned.color()))
 }
 
-impl fmt::Display for Player {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "random: {}", self.random)
-    }
-}
-
-impl Player {
-    pub const fn new(random: bool) -> Self {
-        Self { random }
-    }
-    pub const fn random(&self) -> bool {
-        self.random
-    }
-    pub fn choices(
-        &self,
-        hand: &Hand,
-        position: &Position,
-        turn: &Turn,
-        trump_color: Color,
-    ) -> Result<Vec<Card>, BeloteErrorKind> {
+/// Every card `position` is allowed to play, given what is already on the table.
+pub fn choices(
+    hand: &Hand,
+    position: &Position,
+    turn: &Turn,
+    trump_color: Color,
+) -> Result<Vec<Card>, BeloteErrorKind> {
         if hand.len() as u64 != MAX_CARDS_BY_PLAYER as u64 - turn.number() + 1 {
             return Err(BeloteErrorKind::InvalidCase(format!(
                 "Bad number of cards for player {position} : {} it should be {}",
@@ -119,13 +114,11 @@ impl Player {
                 )))
             }
         };
-        Ok(choices)
-    }
+    Ok(choices)
 }
 
 #[cfg(test)]
 mod choices_tests {
-    use super::Player;
     use crate::card::{Card, Color, Value};
     use crate::hand::Hand;
     use crate::order::Order;
@@ -160,7 +153,7 @@ mod choices_tests {
     }
 
     fn choices(hand: &Hand, position: Position, turn: &Turn) -> Vec<Card> {
-        let Ok(mut choices) = Player::new(true).choices(hand, &position, turn, TRUMP) else {
+        let Ok(mut choices) = super::choices(hand, &position, turn, TRUMP) else {
             panic!("no choices");
         };
         choices.sort_unstable();
@@ -295,5 +288,33 @@ mod choices_tests {
                 card(Color::Club, Value::_7)
             ])
         );
+    }
+}
+
+#[cfg(test)]
+mod bidding_tests {
+    use super::biddable_contracts;
+    use crate::card::{Card, Color, Value};
+    use crate::contract::Contract;
+    use strum::IntoEnumIterator;
+
+    #[test]
+    fn second_turn_excludes_the_returned_card_color() {
+        for color in Color::iter() {
+            for value in Value::iter() {
+                let Some(card_returned) = Card::new(color, value) else {
+                    panic!("cannot build card");
+                };
+                let biddable: Vec<Contract> = biddable_contracts(card_returned).collect();
+
+                assert!(
+                    !biddable.iter().any(|c| c.color() == Some(color)),
+                    "{color} was biddable although it is the returned card color"
+                );
+                // the three other colors, plus Pass
+                assert_eq!(biddable.len(), 4);
+                assert!(biddable.contains(&Contract::Pass));
+            }
+        }
     }
 }

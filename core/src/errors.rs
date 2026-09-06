@@ -12,6 +12,12 @@ pub enum BeloteErrorKind {
     InvalidValue(String),
     #[error("No taker or auctions not finished")]
     NoTaker,
+    #[error("Unexpected answer : {0}")]
+    UnexpectedAnswer(String),
+    #[error("Illegal card : {0}")]
+    IllegalCard(String),
+    #[error("Illegal contract : {0}")]
+    IllegalContract(String),
 }
 
 pub trait ErrOnSome {

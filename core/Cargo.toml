@@ -1,0 +1,25 @@
+[package]
+name = "rbelote-core"
+description = "Belote rules engine, free of any input/output"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+tracing.workspace = true
+rand.workspace = true
+thiserror.workspace = true
+derive_more.workspace = true
+tinyvec.workspace = true
+strum.workspace = true
+strum_macros.workspace = true
+
+[lints]
+workspace = true
+
+# Browsers have no OS entropy source: getrandom needs its web backend, and
+# building for wasm32-unknown-unknown also wants
+#   RUSTFLAGS='--cfg getrandom_backend="wasm_js"'
+# which .cargo/config.toml sets for that target.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }

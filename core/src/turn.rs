@@ -30,7 +30,7 @@ impl Turn {
             west: None,
         }
     }
-    pub fn take(self) -> Option<[Card; 4]> {
+    pub fn take(&self) -> Option<[Card; 4]> {
         let north = self.north?;
         let east = self.east?;
         let south = self.south?;
