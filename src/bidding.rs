@@ -9,7 +9,7 @@ use crate::playing::Playing;
 use crate::position::Position;
 use derive_more::{Constructor, Deref, DerefMut};
 use inquire::{Confirm, Select};
-use rand::{rng, seq::IteratorRandom, Rng};
+use rand::{rng, seq::IteratorRandom, RngExt};
 use std::str::FromStr;
 use strum::IntoEnumIterator;
 use tracing::info;

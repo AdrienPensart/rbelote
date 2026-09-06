@@ -1,7 +1,7 @@
 use crate::constants;
 use crate::position::Position;
 use derive_more::{Index, IntoIterator};
-use rand::{rng, Rng};
+use rand::{rng, RngExt};
 use std::fmt;
 use strum::{EnumCount, VariantArray};
 
@@ -46,7 +46,7 @@ impl Order {
     pub const fn first(&self) -> Position {
         self.0[0]
     }
-    pub fn rotate(&mut self) {
+    pub const fn rotate(&mut self) {
         self.0.rotate_left(1);
     }
 }
@@ -55,18 +55,18 @@ impl Order {
 fn order_tests() {
     let order1 = Order::default();
     let mut order_iter1 = order1.into_iter();
-    assert!(order_iter1.next() == Some(Position::North));
-    assert!(order_iter1.next() == Some(Position::East));
-    assert!(order_iter1.next() == Some(Position::South));
-    assert!(order_iter1.next() == Some(Position::West));
+    assert_eq!(order_iter1.next(), Some(Position::North));
+    assert_eq!(order_iter1.next(), Some(Position::East));
+    assert_eq!(order_iter1.next(), Some(Position::South));
+    assert_eq!(order_iter1.next(), Some(Position::West));
     assert!(order_iter1.next().is_none());
 
     let mut order2 = Order::default();
     order2.rotate();
     let mut order_iter2 = order2.into_iter();
-    assert!(order_iter2.next() == Some(Position::East));
-    assert!(order_iter2.next() == Some(Position::South));
-    assert!(order_iter2.next() == Some(Position::West));
-    assert!(order_iter2.next() == Some(Position::North));
+    assert_eq!(order_iter2.next(), Some(Position::East));
+    assert_eq!(order_iter2.next(), Some(Position::South));
+    assert_eq!(order_iter2.next(), Some(Position::West));
+    assert_eq!(order_iter2.next(), Some(Position::North));
     assert!(order_iter2.next().is_none());
 }

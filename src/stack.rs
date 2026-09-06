@@ -3,7 +3,7 @@ use crate::constants::MAX_CARDS;
 use crate::errors::{BeloteErrorKind, ErrOnSome};
 use derive_more::Index;
 use rand::seq::SliceRandom;
-use rand::{rng, Rng};
+use rand::{rng, RngExt};
 use std::fmt;
 use tinyvec::ArrayVec;
 

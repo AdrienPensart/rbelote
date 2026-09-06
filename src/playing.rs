@@ -117,10 +117,8 @@ impl Game<Playing> {
                                 .prompt_skippable();
                         match chosen_card {
                             Ok(Some(maybe_chosen_card)) => {
-                                match Card::from_str(&maybe_chosen_card) {
-                                    Ok(chosen_card) => break chosen_card,
-                                    Err(e) => return Err(e),
-                                }
+                                let chosen_card = Card::from_str(&maybe_chosen_card)?;
+                                break chosen_card;
                             }
                             Ok(None) => {
                                 info!("Interrupted.");
