@@ -54,10 +54,13 @@ impl Player {
                 let mut other_colors = Vec::new();
                 let mut same_colors = Vec::new();
 
+                let master_is_trump = master_card.color() == trump_color;
                 for card in hand.into_iter().flatten() {
                     if card.color() == trump_color {
                         trumps.push(card);
-                        if card.power(trump_color) > master_card.power(trump_color) {
+                        if master_is_trump
+                            && card.power(trump_color) > master_card.power(trump_color)
+                        {
                             trumps_more.push(card);
                         } else {
                             trumps_less.push(card);
@@ -91,18 +94,20 @@ impl Player {
                     same_colors
                 } else if turn.master_team() == position.team() {
                     info!(
-                        "{position} : my team ({}) is master, I can defausse or cut",
+                        "{position} : my team ({}) is master, I can play anything",
                         turn.master_team()
                     );
-                    if trumps_more.is_empty() {
-                        other_colors.extend(trumps_less);
-                    } else {
-                        other_colors.extend(trumps_more);
-                    }
-                    other_colors
+                    hand.into_iter().flatten().collect()
                 } else if !trumps.is_empty() {
-                    info!("{position} : I can't give asked color, I must cut with a trump");
-                    trumps
+                    if trumps_more.is_empty() {
+                        // either nobody cut yet and any trump wins the fold, or an
+                        // opponent cut above all of mine and I must "sous-couper"
+                        info!("{position} : I can't give asked color, I must cut with a trump");
+                        trumps
+                    } else {
+                        info!("{position} : an opponent cut, I must go up");
+                        trumps_more
+                    }
                 } else {
                     info!("{position} : no trumps left, I must piss");
                     other_colors
@@ -115,5 +120,180 @@ impl Player {
             }
         };
         Ok(choices)
+    }
+}
+
+#[cfg(test)]
+mod choices_tests {
+    use super::Player;
+    use crate::card::{Card, Color, Value};
+    use crate::hand::Hand;
+    use crate::order::Order;
+    use crate::position::Position;
+    use crate::turn::Turn;
+
+    const TRUMP: Color = Color::Spade;
+
+    fn card(color: Color, value: Value) -> Card {
+        let Some(card) = Card::new(color, value) else {
+            panic!("cannot build card");
+        };
+        card
+    }
+
+    fn hand_of(cards: &[Card]) -> Hand {
+        let mut hand = Hand::default();
+        for card in cards {
+            assert!(hand.take(*card).is_ok(), "cannot build hand");
+        }
+        hand
+    }
+
+    /// Cards already on the table, in playing order starting from North.
+    fn turn_with(played: &[(Position, Card)]) -> Turn {
+        // hands of 3 cards are consistent with the 6th turn: 8 - 6 + 1
+        let mut turn = Turn::new(6, Order::default());
+        for (position, card) in played {
+            assert!(turn.put(TRUMP, *position, card), "cannot put card");
+        }
+        turn
+    }
+
+    fn choices(hand: &Hand, position: Position, turn: &Turn) -> Vec<Card> {
+        let Ok(mut choices) = Player::new(true).choices(hand, &position, turn, TRUMP) else {
+            panic!("no choices");
+        };
+        choices.sort_unstable();
+        choices
+    }
+
+    fn sorted(cards: &[Card]) -> Vec<Card> {
+        let mut cards = cards.to_vec();
+        cards.sort_unstable();
+        cards
+    }
+
+    #[test]
+    fn the_asked_color_must_be_supplied() {
+        let hand = hand_of(&[
+            card(Color::Heart, Value::_7),
+            card(Color::Heart, Value::King),
+            card(TRUMP, Value::Jack),
+        ]);
+        let turn = turn_with(&[(Position::North, card(Color::Heart, Value::As))]);
+        assert_eq!(
+            choices(&hand, Position::East, &turn),
+            sorted(&[
+                card(Color::Heart, Value::_7),
+                card(Color::Heart, Value::King)
+            ])
+        );
+    }
+
+    #[test]
+    fn trump_asked_means_going_up() {
+        let hand = hand_of(&[
+            card(TRUMP, Value::_7),
+            card(TRUMP, Value::Jack),
+            card(Color::Diamond, Value::King),
+        ]);
+        let turn = turn_with(&[(Position::North, card(TRUMP, Value::_9))]);
+        assert_eq!(
+            choices(&hand, Position::East, &turn),
+            sorted(&[card(TRUMP, Value::Jack)])
+        );
+    }
+
+    #[test]
+    fn a_partner_master_frees_the_whole_hand() {
+        // North is master, South plays: he may discard OR cut, with any card
+        let hand = hand_of(&[
+            card(TRUMP, Value::_7),
+            card(TRUMP, Value::Jack),
+            card(Color::Diamond, Value::King),
+        ]);
+        let turn = turn_with(&[
+            (Position::North, card(Color::Heart, Value::As)),
+            (Position::East, card(Color::Heart, Value::_7)),
+        ]);
+        // used to withhold the 7 of trump, keeping only the cards beating an ace
+        assert_eq!(
+            choices(&hand, Position::South, &turn),
+            sorted(&[
+                card(TRUMP, Value::_7),
+                card(TRUMP, Value::Jack),
+                card(Color::Diamond, Value::King)
+            ])
+        );
+    }
+
+    #[test]
+    fn an_opponent_cut_must_be_gone_over() {
+        // East cut with the 9 of trump, South holds the jack: surcoupe is compulsory
+        let hand = hand_of(&[
+            card(TRUMP, Value::_7),
+            card(TRUMP, Value::Jack),
+            card(Color::Diamond, Value::King),
+        ]);
+        let turn = turn_with(&[
+            (Position::North, card(Color::Heart, Value::As)),
+            (Position::East, card(TRUMP, Value::_9)),
+        ]);
+        assert_eq!(
+            choices(&hand, Position::South, &turn),
+            sorted(&[card(TRUMP, Value::Jack)])
+        );
+    }
+
+    #[test]
+    fn an_unbeatable_cut_still_forces_a_trump() {
+        // East cut with the jack: South cannot go over, but must "sous-couper"
+        // rather than discard his diamond.
+        let hand = hand_of(&[
+            card(TRUMP, Value::_7),
+            card(TRUMP, Value::_8),
+            card(Color::Diamond, Value::King),
+        ]);
+        let turn = turn_with(&[
+            (Position::North, card(Color::Heart, Value::As)),
+            (Position::East, card(TRUMP, Value::Jack)),
+        ]);
+        assert_eq!(
+            choices(&hand, Position::South, &turn),
+            sorted(&[card(TRUMP, Value::_7), card(TRUMP, Value::_8)])
+        );
+    }
+
+    #[test]
+    fn cutting_a_plain_color_may_be_done_with_any_trump() {
+        // nobody cut yet: the ace of hearts is master but it is not a trump, so
+        // every trump takes the fold and none of them is compulsory
+        let hand = hand_of(&[
+            card(TRUMP, Value::_7),
+            card(TRUMP, Value::Jack),
+            card(Color::Diamond, Value::King),
+        ]);
+        let turn = turn_with(&[(Position::North, card(Color::Heart, Value::As))]);
+        assert_eq!(
+            choices(&hand, Position::East, &turn),
+            sorted(&[card(TRUMP, Value::_7), card(TRUMP, Value::Jack)])
+        );
+    }
+
+    #[test]
+    fn without_the_asked_color_nor_trump_anything_goes() {
+        let hand = hand_of(&[
+            card(Color::Diamond, Value::King),
+            card(Color::Club, Value::_7),
+        ]);
+        let mut turn = Turn::new(7, Order::default());
+        assert!(turn.put(TRUMP, Position::North, &card(Color::Heart, Value::As)));
+        assert_eq!(
+            choices(&hand, Position::East, &turn),
+            sorted(&[
+                card(Color::Diamond, Value::King),
+                card(Color::Club, Value::_7)
+            ])
+        );
     }
 }

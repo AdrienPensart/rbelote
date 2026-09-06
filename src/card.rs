@@ -113,6 +113,10 @@ impl Card {
     }
     pub fn points(&self, trump_color: Color) -> u64 {
         match self.value {
+            Value::As => 11,
+            Value::_10 => 10,
+            Value::King => 4,
+            Value::Queen => 3,
             Value::Jack => {
                 if self.color == trump_color {
                     20
@@ -127,10 +131,6 @@ impl Card {
                     0
                 }
             }
-            Value::As => 11,
-            Value::_10 => 10,
-            Value::King => 4,
-            Value::Queen => 3,
             Value::_7 | Value::_8 => 0,
         }
     }
@@ -149,13 +149,18 @@ impl Card {
             }
         }
     }
+    // power is not a number of points, just a rating
     pub fn power(self, trump_color: Color) -> u8 {
         match self.value {
+            Value::As => 11,
+            Value::_10 => 10,
+            Value::King => 5,
+            Value::Queen => 4,
             Value::Jack => {
                 if self.color == trump_color {
                     20
                 } else {
-                    2
+                    3
                 }
             }
             Value::_9 => {
@@ -165,10 +170,6 @@ impl Card {
                     2
                 }
             }
-            Value::As => 11,
-            Value::_10 => 10,
-            Value::King => 4,
-            Value::Queen => 3,
             Value::_8 => 1,
             Value::_7 => 0,
         }

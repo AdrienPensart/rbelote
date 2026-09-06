@@ -13,6 +13,12 @@ use rand::{rng, seq::IteratorRandom, RngExt};
 use strum::IntoEnumIterator;
 use tracing::info;
 
+/// Second bidding turn: any color may be named as trump except the one of the
+/// returned card. `Contract::Pass` is kept, it is how a player declines.
+fn biddable_contracts(card_returned: Card) -> impl Iterator<Item = Contract> {
+    Contract::iter().filter(move |contract| contract.color() != Some(card_returned.color()))
+}
+
 pub enum PlayOrNext {
     NextGame(Game<Initial>),
     PlayGame(Game<Playing>),
@@ -103,18 +109,15 @@ impl Game<Bidding> {
             'second_turn: for position in order {
                 let chosen_color = if players[position].random() {
                     if rng().random_bool(players.randomization()) {
-                        Contract::iter()
+                        biddable_contracts(card_returned)
+                            .filter_map(|contract| contract.color())
                             .choose(&mut rng())
-                            .and_then(|contract| contract.color())
                     } else {
                         None
                     }
                 } else {
                     'choose_contract: loop {
-                        // second turn: any color is biddable except the returned card's one
-                        let contracts: Vec<Contract> = Contract::iter()
-                            .filter(|c| c.color() != Some(card_returned.color()))
-                            .collect();
+                        let contracts: Vec<Contract> = biddable_contracts(card_returned).collect();
                         info!("Nobody took: {card_returned}, please choose a color for trumps");
                         let answer =
                             Select::new("Which color do you choose ? (ESC to cancel)", contracts)
@@ -172,5 +175,33 @@ impl Game<Bidding> {
             points,
             Playing::new(taker, bidding.hands, trump_color, bidding.into()),
         )))
+    }
+}
+
+#[cfg(test)]
+mod bidding_tests {
+    use super::biddable_contracts;
+    use crate::card::{Card, Color, Value};
+    use crate::contract::Contract;
+    use strum::IntoEnumIterator;
+
+    #[test]
+    fn second_turn_excludes_the_returned_card_color() {
+        for color in Color::iter() {
+            for value in Value::iter() {
+                let Some(card_returned) = Card::new(color, value) else {
+                    panic!("cannot build card");
+                };
+                let biddable: Vec<Contract> = biddable_contracts(card_returned).collect();
+
+                assert!(
+                    !biddable.iter().any(|c| c.color() == Some(color)),
+                    "{color} was biddable although it is the returned card color"
+                );
+                // the three other colors, plus Pass
+                assert_eq!(biddable.len(), 4);
+                assert!(biddable.contains(&Contract::Pass));
+            }
+        }
     }
 }
