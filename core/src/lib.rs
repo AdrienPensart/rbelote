@@ -7,6 +7,7 @@
 //! [`Answer`](game::Answer)s. A terminal, a browser or an AI can all drive it
 //! the same way.
 
+pub mod bot;
 pub mod card;
 pub mod constants;
 pub mod contract;

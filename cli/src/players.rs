@@ -33,7 +33,7 @@ pub struct Players {
 }
 
 impl Players {
-    pub const fn new(north: Player, south: Player, east: Player, west: Player) -> Self {
+    pub const fn new(north: Player, east: Player, south: Player, west: Player) -> Self {
         Self {
             north,
             east,

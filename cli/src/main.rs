@@ -80,8 +80,8 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     let players = Players::new(
         Player::new(!opts.human_north),
-        Player::new(!opts.human_south),
         Player::new(!opts.human_east),
+        Player::new(!opts.human_south),
         Player::new(!opts.human_west),
     );
 

@@ -95,6 +95,8 @@ pub struct DealOutcome {
     pub taker: Position,
     pub trump_color: Color,
     pub belote: Option<Team>,
+    /// who won the last trick, and with it the "dix de der"
+    pub last_trick: Position,
     pub points: DealPoints,
     pub score: DealScore,
 }
@@ -469,6 +471,7 @@ impl Game {
             taker,
             trump_color,
             belote,
+            last_trick,
             points,
             score,
         };
