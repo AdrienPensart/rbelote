@@ -66,8 +66,9 @@ pub fn redeal() -> String {
     "Nobody took, the cards are dealt again".to_string()
 }
 
-pub fn deal_started(deals_left: u64, dealer: &str) -> String {
-    format!("— New deal, {deals_left} left, {dealer} deals —")
+pub fn deal_started(deals_left: u64, dealer: &str, cutter: Option<&str>) -> String {
+    let cut = cutter.map_or_else(String::new, |cutter| format!("{cutter} cuts, "));
+    format!("— New deal, {deals_left} left, {cut}{dealer} deals —")
 }
 
 pub fn game_over() -> String {

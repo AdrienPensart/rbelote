@@ -46,6 +46,10 @@ impl Order {
     pub const fn first(&self) -> Position {
         self.0[0]
     }
+    /// The last seat to be served, to bid and to play: the dealer.
+    pub const fn last(&self) -> Position {
+        self.0[constants::MAX_PLAYERS - 1]
+    }
     pub const fn rotate(&mut self) {
         self.0.rotate_left(1);
     }

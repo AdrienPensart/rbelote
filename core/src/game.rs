@@ -34,6 +34,8 @@ use crate::score::{DealPoints, DealScore};
 use crate::stack::Stack;
 use crate::team::Team;
 use crate::turn::Turn;
+use rand::rngs::StdRng;
+use rand::{RngExt, SeedableRng};
 use tracing::{info, warn};
 
 /// What the engine needs before it can move on.
@@ -142,6 +144,10 @@ pub struct Game {
     order: Order,
     number: u64,
     stack: Stack,
+    /// Shuffles once and cuts between deals: the same seed deals the same cards.
+    rng: StdRng,
+    /// Who cut the stack before the current deal, nobody for the first one.
+    cutter: Option<Position>,
     litige: u64,
     phase: Phase,
 }
@@ -174,13 +180,22 @@ fn deal(stack: &mut Stack, order: Order) -> Result<Auction, BeloteErrorKind> {
 impl Game {
     /// Shuffles, deals, and stops on the first bid.
     pub fn new(order: Order) -> Result<Self, BeloteErrorKind> {
-        let mut stack = Stack::random();
+        Self::with_seed(order, rand::rng().random())
+    }
+
+    /// The same as [`Game::new`], with a shuffle and cuts fixed by `seed`:
+    /// two games built with the same seed deal the same first hands.
+    pub fn with_seed(order: Order, seed: u64) -> Result<Self, BeloteErrorKind> {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let mut stack = Stack::random(&mut rng);
         let phase = Phase::Auction(deal(&mut stack, order)?);
         Ok(Self {
             points: Points::default(),
             order,
             number: 0,
             stack,
+            rng,
+            cutter: None,
             litige: 0,
             phase,
         })
@@ -480,10 +495,14 @@ impl Game {
     }
 
     /// Rotates the deal, cuts (belote never reshuffles) and deals again.
+    ///
+    /// RULE: the dealer of the deal that just ended cuts the stack for the next one.
     fn next_deal(&mut self) -> Result<(), BeloteErrorKind> {
+        let cutter = self.order.last();
         self.order.rotate();
         self.number += 1;
-        self.stack.cut();
+        self.stack.cut(&mut self.rng)?;
+        self.cutter = Some(cutter);
         self.phase = Phase::Auction(deal(&mut self.stack, self.order)?);
         Ok(())
     }
@@ -498,6 +517,11 @@ impl Game {
     }
     pub const fn order(&self) -> Order {
         self.order
+    }
+    /// Who cut the stack before the current deal: the previous dealer,
+    /// nobody for the first deal of the game.
+    pub const fn cutter(&self) -> Option<Position> {
+        self.cutter
     }
     pub const fn litige(&self) -> u64 {
         self.litige
@@ -543,6 +567,8 @@ mod game_tests {
     use crate::constants::{ALL_CARD_POINTS, MAX_CARDS_BY_PLAYER};
     use crate::contract::Contract;
     use crate::order::Order;
+    use crate::position::Position;
+    use strum::VariantArray;
 
     /// A policy that always takes and always plays its first legal card, so a
     /// deal is always played out.
@@ -591,6 +617,52 @@ mod game_tests {
         }
         // eight tricks per deal, the last of which ends the deal instead
         assert_eq!(tricks, deals * (MAX_CARDS_BY_PLAYER as u64 - 1));
+    }
+
+    #[test]
+    fn the_previous_dealer_cuts_for_the_next_deal() {
+        let Ok(mut game) = Game::with_seed(Order::default(), 3) else {
+            panic!("cannot start");
+        };
+        assert_eq!(game.cutter(), None, "the first stack is shuffled, not cut");
+        let mut previous_dealer = game.order().last();
+        let mut deals = 0;
+        while deals < 4 {
+            let request = game.request();
+            let Ok(event) = game.answer(eager(&request)) else {
+                panic!("engine refused a legal answer to {request:?}");
+            };
+            if matches!(event, Event::DealEnded(_)) {
+                deals += 1;
+                assert_eq!(game.cutter(), Some(previous_dealer));
+                assert_ne!(game.order().last(), previous_dealer, "the deal moved on");
+                previous_dealer = game.order().last();
+            }
+        }
+    }
+
+    #[test]
+    fn the_same_seed_deals_the_same_first_hands() {
+        let (Ok(first), Ok(second)) = (
+            Game::with_seed(Order::default(), 42),
+            Game::with_seed(Order::default(), 42),
+        ) else {
+            panic!("cannot start");
+        };
+        for position in Position::VARIANTS {
+            assert_eq!(
+                first.hand(*position).to_string(),
+                second.hand(*position).to_string()
+            );
+        }
+        assert_eq!(first.card_returned(), second.card_returned());
+        let Ok(other) = Game::with_seed(Order::default(), 43) else {
+            panic!("cannot start");
+        };
+        let same = Position::VARIANTS
+            .iter()
+            .all(|position| first.hand(*position).to_string() == other.hand(*position).to_string());
+        assert!(!same, "another seed deals other cards");
     }
 
     #[test]

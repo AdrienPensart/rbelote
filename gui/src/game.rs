@@ -2,6 +2,7 @@
 
 use crate::log;
 use egui::Context;
+use rand::RngExt;
 use rbelote_core::bot;
 use rbelote_core::card::{Card, Color, Value};
 use rbelote_core::constants::MAX_PLAYERS;
@@ -163,6 +164,8 @@ fn rank(card: Card, trump: Option<Color>) -> (usize, u8) {
 pub struct Game {
     pub settings: Settings,
     pub engine: Engine,
+    /// What the engine was seeded with: the same seed deals the same cards again.
+    seed: u64,
     pub log: Vec<Line>,
     /// What each seat said during the auction, in table order.
     pub bids: [Bid; MAX_PLAYERS],
@@ -189,10 +192,27 @@ pub struct Game {
 
 impl Game {
     pub fn new(settings: &Settings) -> Result<Self, BeloteErrorKind> {
-        let engine = Engine::new(Order::default())?;
+        Self::with_seed(settings, rand::rng().random())
+    }
+
+    /// The same game again: same seed, so the same cards are dealt first.
+    ///
+    /// Belote never reshuffles, so later deals depend on how the tricks fell:
+    /// only the first deal is sure to come back identical.
+    pub fn replay(&self) -> Result<Self, BeloteErrorKind> {
+        Self::with_seed(&self.settings, self.seed)
+    }
+
+    // pub const fn seed(&self) -> u64 {
+    //     self.seed
+    // }
+
+    pub fn with_seed(settings: &Settings, seed: u64) -> Result<Self, BeloteErrorKind> {
+        let engine = Engine::with_seed(Order::default(), seed)?;
         let mut game = Self {
             settings: settings.clone(),
             engine,
+            seed,
             log: Vec::new(),
             bids: [Bid::Silent; MAX_PLAYERS],
             trick: Trick::default(),
@@ -208,10 +228,8 @@ impl Game {
             last_trick_until: Instant::now(),
             next_bot_at: Instant::now(),
         };
-        game.say(&log::deal_started(
-            game.deals_left(),
-            &game.name(game.deal().dealer),
-        ));
+        let line = log::deal_started(game.deals_left(), &game.name(game.deal().dealer), None);
+        game.say(&line);
         Ok(game)
     }
 
@@ -371,10 +389,13 @@ impl Game {
         if self.is_finished() {
             self.say(&log::game_over());
         } else {
-            self.say(&log::deal_started(
+            let cutter = self.engine.cutter().map(|cutter| self.name(cutter));
+            let line = log::deal_started(
                 self.deals_left(),
                 &self.name(self.deal().dealer),
-            ));
+                cutter.as_deref(),
+            );
+            self.say(&line);
         }
         self.next_bot_at = Instant::now() + self.delay();
     }

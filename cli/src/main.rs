@@ -108,6 +108,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                 Event::TrickWon(position) => info!("{position} takes the fold"),
                 Event::Redeal => {
                     info!("Nobody took, dealing again");
+                    if let Some(cutter) = game.cutter() {
+                        info!("{cutter} cuts the deck");
+                    }
                     break;
                 }
                 Event::DealEnded(outcome) => {
@@ -118,6 +121,9 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                         outcome.score.attack,
                         outcome.score.defense
                     );
+                    if let Some(cutter) = game.cutter() {
+                        info!("{cutter} cuts the deck");
+                    }
                     break;
                 }
             }

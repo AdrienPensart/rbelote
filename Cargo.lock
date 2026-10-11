@@ -2923,6 +2923,7 @@ dependencies = [
  "eframe",
  "egui",
  "image",
+ "rand",
  "rbelote-core",
  "strum",
 ]

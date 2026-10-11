@@ -140,6 +140,13 @@ impl eframe::App for BeloteApp {
                 match view::show(game, ui, &self.textures) {
                     Outcome::Continue => None,
                     Outcome::Quit => Some(Screen::Setup),
+                    Outcome::Replay => match game.replay() {
+                        Ok(again) => Some(Screen::Table(Box::new(again))),
+                        Err(error) => {
+                            self.error = Some(error.to_string());
+                            Some(Screen::Setup)
+                        }
+                    },
                 }
             }
         };

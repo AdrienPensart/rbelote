@@ -12,6 +12,7 @@ path = "src/main.rs"
 [dependencies]
 rbelote-core.workspace = true
 strum.workspace = true
+rand.workspace = true
 # Immediate mode GUI. The default backend is wgpu, which runs on Metal on macOS.
 eframe = "0.36.2"
 egui = "0.36.2"
