@@ -105,6 +105,10 @@ impl Stack {
         };
         Ok(card)
     }
+    /// The cards from the bottom of the stack to its top.
+    pub fn cards(&self) -> impl Iterator<Item = Card> + '_ {
+        self.0.iter().flatten().copied()
+    }
     pub fn len(&self) -> usize {
         self.0.len()
     }

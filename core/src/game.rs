@@ -130,6 +130,9 @@ struct Playing {
     attack_points: u64,
     defense_points: u64,
     attack_tricks: u64,
+    /// The tricks won by each side, card by card in the order they were played.
+    attack_pile: Stack,
+    defense_pile: Stack,
 }
 
 #[derive(Debug)]
@@ -340,12 +343,14 @@ impl Game {
             attack_points: 0,
             defense_points: 0,
             attack_tricks: 0,
+            attack_pile: Stack::default(),
+            defense_pile: Stack::default(),
         }));
         Ok(Event::Continue)
     }
 
     fn answer_play(&mut self, card: Card) -> Result<Event, BeloteErrorKind> {
-        let (master, number) = {
+        let (master, number, piled) = {
             let Phase::Playing(playing) = &mut self.phase else {
                 return Err(BeloteErrorKind::UnexpectedAnswer(
                     "bidding is not over, no card is expected".to_string(),
@@ -390,6 +395,12 @@ impl Game {
             if attacking {
                 playing.attack_tricks += 1;
             }
+            // RULE: each side keeps its tricks in one pile, in the order they fell
+            let pile = if attacking {
+                &mut playing.attack_pile
+            } else {
+                &mut playing.defense_pile
+            };
             for card in cards {
                 let points = card.points(playing.trump_color);
                 warn!("{card} : {points} points");
@@ -398,18 +409,18 @@ impl Game {
                 } else {
                     playing.defense_points += points;
                 }
-                self.stack.append_card(card)?;
+                pile.append_card(card)?;
             }
             info!("New attack points = {}", playing.attack_points);
             info!("New defense points = {}", playing.defense_points);
-            (master, playing.number)
+            let piled = playing.attack_pile.len() + playing.defense_pile.len();
+            (master, playing.number, piled)
         };
 
         let expected = usize::try_from(number).unwrap_or(usize::MAX) * MAX_PLAYERS;
-        if self.stack.len() != expected {
+        if piled != expected {
             return Err(BeloteErrorKind::InvalidCase(format!(
-                "bad deck length {} it should be {expected}",
-                self.stack.len()
+                "bad piles length {piled} it should be {expected}"
             )));
         }
 
@@ -446,6 +457,7 @@ impl Game {
         let mut attack = playing.attack_points;
         let mut defense = playing.defense_points;
         let attack_tricks = playing.attack_tricks;
+        let (attack_pile, defense_pile) = (playing.attack_pile, playing.defense_pile);
 
         // "dix de der", to whoever took the last trick
         if last_trick.team() == taker.team() {
@@ -490,6 +502,11 @@ impl Game {
             points,
             score,
         };
+        // RULE: the tricks go back on the stack as two piles, the attack's then
+        // the defense's, and are never shuffled
+        for card in attack_pile.cards().chain(defense_pile.cards()) {
+            self.stack.append_card(card)?;
+        }
         self.next_deal()?;
         Ok(Event::DealEnded(Box::new(outcome)))
     }
@@ -563,11 +580,13 @@ impl Game {
 
 #[cfg(test)]
 mod game_tests {
-    use super::{Answer, Event, Game, Request};
-    use crate::constants::{ALL_CARD_POINTS, MAX_CARDS_BY_PLAYER};
+    use super::{Answer, Event, Game, Phase, Request};
+    use crate::card::Card;
+    use crate::constants::{ALL_CARD_POINTS, MAX_CARDS, MAX_CARDS_BY_PLAYER, MIN_CUT};
     use crate::contract::Contract;
     use crate::order::Order;
     use crate::position::Position;
+    use crate::stack::Stack;
     use strum::VariantArray;
 
     /// A policy that always takes and always plays its first legal card, so a
@@ -617,6 +636,75 @@ mod game_tests {
         }
         // eight tricks per deal, the last of which ends the deal instead
         assert_eq!(tricks, deals * (MAX_CARDS_BY_PLAYER as u64 - 1));
+    }
+
+    #[test]
+    fn the_tricks_go_back_as_two_team_piles_then_get_cut() {
+        let Ok(mut game) = Game::with_seed(Order::default(), 8) else {
+            panic!("cannot start");
+        };
+        let mut last_trick_cards: Vec<Card> = Vec::new();
+        loop {
+            let request = game.request();
+            let answer = eager(&request);
+            let (attack_pile, defense_pile, taker, last_trick) = match &game.phase {
+                Phase::Playing(playing) => (
+                    playing.attack_pile,
+                    playing.defense_pile,
+                    playing.taker,
+                    playing.number == MAX_CARDS_BY_PLAYER as u64,
+                ),
+                Phase::Auction(_) => (Stack::default(), Stack::default(), Position::North, false),
+            };
+            if let (Answer::Play(card), true) = (answer, last_trick) {
+                last_trick_cards.push(card);
+            }
+            let Ok(event) = game.answer(answer) else {
+                panic!("engine refused a legal answer to {request:?}");
+            };
+            let Event::DealEnded(outcome) = event else {
+                continue;
+            };
+            // the last trick joins the pile of the side that won it
+            let mut attack: Vec<Card> = attack_pile.cards().collect();
+            let mut defense: Vec<Card> = defense_pile.cards().collect();
+            if outcome.last_trick.team() == taker.team() {
+                attack.extend(&last_trick_cards);
+            } else {
+                defense.extend(&last_trick_cards);
+            }
+            let expected: Vec<Card> = attack.iter().chain(defense.iter()).copied().collect();
+            assert_eq!(expected.len(), MAX_CARDS);
+
+            // rebuild the cut stack: what is left of it, plus what the new deal popped
+            let hands: Vec<Vec<Card>> = game
+                .order()
+                .into_iter()
+                .map(|position| (*game.hand(position)).into_iter().flatten().collect())
+                .collect();
+            let mut popped: Vec<Card> = Vec::new();
+            for hand in &hands {
+                popped.extend(hand.iter().take(3));
+            }
+            for hand in &hands {
+                popped.extend(hand.iter().skip(3).take(2));
+            }
+            popped.push(game.card_returned().expect("the bidding is open"));
+            let mut rebuilt: Vec<Card> = game.stack.cards().collect();
+            rebuilt.extend(popped.iter().rev());
+            assert_eq!(rebuilt.len(), MAX_CARDS);
+
+            let rotation = (0..MAX_CARDS).find(|&depth| {
+                let mut turned = expected.clone();
+                turned.rotate_left(depth);
+                turned == rebuilt
+            });
+            let Some(depth) = rotation else {
+                panic!("the stack is not the two piles, cut once");
+            };
+            assert!((MIN_CUT..=MAX_CARDS - MIN_CUT).contains(&depth), "{depth}");
+            break;
+        }
     }
 
     #[test]
